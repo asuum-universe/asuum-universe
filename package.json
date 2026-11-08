@@ -1,0 +1,17 @@
+{
+  "name": "asuum-universe",
+  "version": "0.1.0-beta",
+  "description": "Privacy-first, client-side only AI chat application. BYOK. AES-GCM encrypted. Zero backend.",
+  "type": "module",
+  "author": "Asuum Universe",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vite": "^5.0.11"
+  }
+}

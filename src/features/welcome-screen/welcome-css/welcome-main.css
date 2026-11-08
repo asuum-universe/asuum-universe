@@ -1,0 +1,107 @@
+/* welcome-main.css — NO JELLY BLOBS + PROFESSIONAL TEXT SIZING + INPUT SHIFTED UP */
+
+.main-panel {
+  background-color: var(--theme-bg);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+  transition: background-color var(--theme-transition, 0.7s cubic-bezier(0.4,0,0.2,1)), box-shadow var(--theme-transition, 0.7s cubic-bezier(0.4,0,0.2,1));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body.main-dark .main-panel {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ===== JELLY CANVAS — REMOVED ===== */
+.jelly-canvas {
+  display: none !important;
+}
+
+/* ===== WELCOME HERO — Shifted UP to 30% ===== */
+.welcome-hero-container {
+  position: absolute; top: 30%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center; width: 96%; max-width: 900px;
+  pointer-events: none; z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+  transition: opacity 0.5s ease;
+}
+.main-panel.chat-active .welcome-hero-container { opacity: 0; pointer-events: none; }
+
+/* ✅ PROFESSIONAL TEXT — Smaller, bolder, tighter spacing */
+.welcome-line {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 1.8rem; font-weight: 800;
+  color: var(--theme-welcome-line);
+  margin: 0 0 10px 0; line-height: 1.2; letter-spacing: -0.04em;
+  min-height: 2.4rem;
+  display: flex; align-items: center; justify-content: center;
+  white-space: nowrap; opacity: 0;
+  animation: fadeInUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
+  text-shadow: 0 1px 20px rgba(255, 255, 255, 0.8);
+  transition: color var(--theme-transition, 0.7s cubic-bezier(0.4,0,0.2,1)), text-shadow var(--theme-transition, 0.7s cubic-bezier(0.4,0,0.2,1));
+}
+body.main-dark .welcome-line { text-shadow: 0 1px 20px rgba(0, 0, 0, 0.4); }
+
+/* ✅ SUBTITLE — Compact, medium weight, muted color */
+.welcome-line.subtitle-line {
+  font-size: 0.95rem; font-weight: 600;
+  color: var(--theme-welcome-subtitle);
+  min-height: 1.4rem; margin-bottom: 0; letter-spacing: -0.01em;
+  animation-delay: 0.5s;
+  transition: color var(--theme-transition, 0.7s cubic-bezier(0.4,0,0.2,1));
+}
+
+@keyframes fadeInUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+/* ✅ CURSOR — Matches new smaller text size */
+.typewriter-cursor {
+  display: inline-block; width: 2px; height: 1.8rem;
+  background: var(--theme-cursor); margin-left: 2px;
+  animation: cursorBlink 1s ease-in-out infinite;
+  vertical-align: middle; border-radius: 1px;
+  transition: background var(--theme-transition, 0.7s cubic-bezier(0.4,0,0.2,1));
+}
+.welcome-line.subtitle-line .typewriter-cursor { height: 1.1rem; background: var(--theme-text-muted); }
+@keyframes cursorBlink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+.welcome-hero-container.cursor-hidden .typewriter-cursor { display: none; }
+
+/* ===== INPUT BOX — Shifted UP to 38% ===== */
+.main-panel:not(.chat-active) .input-container {
+  position: absolute; top: 38%; left: 50%; transform: translateX(-50%);
+  z-index: 2; opacity: 0; transition: opacity 0.5s ease 0.3s;
+}
+.main-panel:not(.chat-active) .input-container.visible { opacity: 1; }
+.main-panel.chat-active .input-container {
+  position: relative; top: auto; left: auto; transform: none;
+  opacity: 1; margin-bottom: 8px; transition: opacity 0.3s ease;
+}
+
+.main-panel.animations-paused .typewriter-cursor { animation-play-state: paused !important; }
+
+@media (max-width: 768px) {
+  .main-panel { border-radius: 6px; padding: 0; }
+  .welcome-hero-container { top: 26%; width: 98%; }
+  .welcome-line { font-size: 1.5rem; min-height: 2rem; margin-bottom: 8px; }
+  .welcome-line.subtitle-line { font-size: 0.88rem; min-height: 1.3rem; }
+  .typewriter-cursor { height: 1.5rem; }
+  .welcome-line.subtitle-line .typewriter-cursor { height: 1.1rem; }
+  .main-panel:not(.chat-active) .input-container { top: 35%; }
+}
+@media (max-width: 480px) {
+  .welcome-hero-container { top: 24%; }
+  .welcome-line { font-size: 1.3rem; white-space: normal; text-align: center; min-height: 1.8rem; }
+  .welcome-line.subtitle-line { font-size: 0.82rem; white-space: normal; }
+  .main-panel:not(.chat-active) .input-container { top: 33%; width: 95%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-line, .main-panel:not(.chat-active) .input-container { animation: none !important; opacity: 1 !important; }
+  .typewriter-cursor { animation: none !important; opacity: 1; }
+}
