@@ -32,30 +32,34 @@ function stopHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.remove('l
 function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avatarBtn||!faceGroupEl||!eyeEls)return;const r=avatarBtn.getBoundingClientRect(),ax=r.left+r.width/2,ay=r.top+r.height/2,dx=cx-ax,dy=cy-ay,d=Math.hypot(dx,dy);if(d>400){faceGroupEl.style.transform='translate(0,0)';eyeEls.forEach(e=>e.style.transform='translate(0,0)');return;}const a=Math.atan2(dy,dx),n=Math.min(d/400,1),fm=n*n*1.2,em=n*2.5;faceGroupEl.style.transform=`translate(${(Math.cos(a)*fm).toFixed(2)}px,${(Math.sin(a)*fm).toFixed(2)}px)`;eyeEls.forEach(e=>e.style.transform=`translate(${(Math.cos(a)*em).toFixed(2)}px,${(Math.sin(a)*em).toFixed(2)}px)`);};document.addEventListener('mousemove',(e:MouseEvent)=>{if(gazeRafId)cancelAnimationFrame(gazeRafId);gazeRafId=requestAnimationFrame(()=>upd(e.clientX,e.clientY));});}
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
 function instantRender():void{renderTitle();syncPanel();}
-/**
- * ✅ ENTER WELCOME MODE — Complete state reset
- * Clears ALL traces of previous chat. Header becomes big, avatar centered, no title.
- */
 function enterWelcomeMode():void{
   isWelcomeMode=true;saveWelcomeState(true);
   eventCapturedTitle=null;editingTabId=null;editOrigTitle='';
   closeMenu();resetWave();
-  if(headerAreaEl){headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('header-closed');headerAreaEl.classList.remove('awning-open');}
+  if(headerAreaEl){headerAreaEl.classList.remove('header-closed');headerAreaEl.classList.remove('awning-open');headerAreaEl.classList.remove('welcome-collapsed');}
   syncPanel();renderTitle();
   setTimeout(()=>triggerWave(),400);
 }
 /**
- * ✅ EXIT WELCOME MODE — Switch to chat mode
- * Header becomes thin, title area visible, avatar no longer centered.
+ * ✅ EXIT WELCOME MODE — CRITICAL ORDER:
+ * 1. Set isWelcomeMode=false FIRST (prevents syncPanel from re-adding welcome-header)
+ * 2. Remove all welcome classes
+ * 3. Call syncPanel (now correctly adds chat mode classes)
+ * 4. Render title in next frame (ensures DOM is ready)
  */
 function exitWelcomeMode(title?:string):void{
   isWelcomeMode=false;saveWelcomeState(false);
-  if(headerAreaEl){headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('header-closed');headerAreaEl.classList.remove('awning-open');}
+  if(title)eventCapturedTitle=title;
   resetWave();
   if(leftHandEl)leftHandEl.classList.remove('hand-visible');
   if(rightHandEl){rightHandEl.classList.remove('hand-visible');rightHandEl.classList.remove('hand-wave');}
-  if(title)eventCapturedTitle=title;
-  syncPanel();renderTitle();
+  if(headerAreaEl){
+    headerAreaEl.classList.remove('welcome-collapsed');
+    headerAreaEl.classList.remove('header-closed');
+    headerAreaEl.classList.remove('awning-open');
+  }
+  syncPanel();
+  requestAnimationFrame(()=>{renderTitle();});
 }
 export function initializeHeaderUI():void{
   console.log('😊 Header UI (V1 + Wave + Laser Shimmer + Arrow Icon)');
@@ -71,15 +75,7 @@ export function initializeHeaderUI():void{
   document.addEventListener('asuum:ai-thinking-start',()=>startHeaderShimmer());
   document.addEventListener('asuum:ai-thinking-stop',()=>stopHeaderShimmer());
   onTabsChange(()=>{if(isWelcomeMode)return;instantRender();});
-  /**
-   * ✅ WELCOME MODE EVENT — Full cleanup
-   * Dispatched by chat-ui when: chat deleted, session cleared, returning to welcome
-   */
   document.addEventListener('asuum:welcome-mode',()=>{enterWelcomeMode();setExplicitNewTabClicked(false);clearInjectedColor();});
-  /**
-   * ✅ CHAT MODE EVENT — Switch to thin header with title
-   * Dispatched by chat-ui when: new chat started, session opened from sidebar
-   */
   document.addEventListener('asuum:chat-mode',((e:Event)=>{const ce=e as CustomEvent;const t=ce?.detail?.title||'';exitWelcomeMode(t);wasInChatMode=true;})as EventListener);
   document.addEventListener('asuum:message-sent',()=>{if(isWelcomeMode){const s=getCurrentSession();exitWelcomeMode(s?.title||'New Chat');wasInChatMode=true;}});
   document.addEventListener('asuum:session-opened',((e:Event)=>{const ce=e as CustomEvent;const t=ce?.detail?.title||'Chat';exitWelcomeMode(t);wasInChatMode=true;const p2=document.getElementById('mainPanel');if(p2)p2.classList.add('chat-active');})as EventListener);
@@ -95,10 +91,6 @@ function injectStructure():void{
   headerAreaEl.appendChild(reopenLineEl);
   reopenArrowEl=document.createElement('div');reopenArrowEl.className='reopen-arrow-icon';reopenArrowEl.innerHTML='<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';headerAreaEl.appendChild(reopenArrowEl);
   const tr=document.createElement('div');tr.className='header-top-row';
-  /**
-   * ✅ HEADER TOP ROW CLICK — Toggle welcome-collapsed ONLY in welcome mode
-   * In chat mode, clicking empty space does NOTHING (header stays thin)
-   */
   tr.addEventListener('click',(e:MouseEvent)=>{
     if(!headerAreaEl)return;
     const tgt=e.target as HTMLElement;
@@ -136,11 +128,12 @@ function renderTitle():void{
 function openMenu(id:string,anchor:HTMLElement):void{closeMenu();tabMenuForId=id;tabMenuEl=document.createElement('div');tabMenuEl.className='tab-menu';tabMenuEl.innerHTML=`<button class="tab-menu-item" data-action="rename">${IC_RENAME}<span>Rename</span></button><button class="tab-menu-item danger" data-action="delete">${IC_TRASH}<span>Delete</span></button>`;document.body.appendChild(tabMenuEl);const r=anchor.getBoundingClientRect(),mw=tabMenuEl.offsetWidth,mh=tabMenuEl.offsetHeight;tabMenuEl.style.left=`${Math.max(8,Math.min(r.right-mw,window.innerWidth-mw-8))}px`;let top=r.bottom+6;if(top+mh>window.innerHeight-8)top=r.top-mh-6;tabMenuEl.style.top=`${top}px`;tabMenuEl.querySelector('[data-action="rename"]')?.addEventListener('click',():void=>{closeMenu();if(tabMenuForId)startEditingTab(tabMenuForId);});tabMenuEl.querySelector('[data-action="delete"]')?.addEventListener('click',():void=>{closeMenu();});}
 function closeMenu():void{if(tabMenuEl){tabMenuEl.remove();tabMenuEl=null;tabMenuForId=null;}}
 function wireGlobalClose():void{document.addEventListener('click',(e:Event):void=>{if(tabMenuEl&&!tabMenuEl.contains(e.target as Node))closeMenu();});}
-function syncPanel():void{if(isSyncing)return;isSyncing=true;try{const p=document.getElementById('mainPanel');if(!p||!headerAreaEl)return;const ca=p.classList.contains('chat-active');if(isWelcomeMode||!ca){headerAreaEl.classList.add('welcome-header');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');}else{headerAreaEl.classList.remove('welcome-header');headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');if(ca)p.classList.remove('new-tab-mode');}headerAreaEl.classList.remove('header-hidden');Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});}finally{requestAnimationFrame(()=>{isSyncing=false;});}}
 /**
- * ✅ ROBUST WATCH PANEL — Detects chat↔welcome transitions via DOM polling.
- * Catches ALL scenarios: delete, new chat, sidebar click, session clear, etc.
+ * ✅ SYNC PANEL — STRICT MODE CHECK
+ * Only adds welcome-header when BOTH isWelcomeMode AND !chat-active are true.
+ * When isWelcomeMode=false, NEVER adds welcome-header regardless of chat-active state.
  */
+function syncPanel():void{if(isSyncing)return;isSyncing=true;try{const p=document.getElementById('mainPanel');if(!p||!headerAreaEl)return;const ca=p.classList.contains('chat-active');if(isWelcomeMode&&!ca){headerAreaEl.classList.add('welcome-header');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');}else{headerAreaEl.classList.remove('welcome-header');headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');if(ca)p.classList.remove('new-tab-mode');}headerAreaEl.classList.remove('header-hidden');Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});}finally{requestAnimationFrame(()=>{isSyncing=false;});}}
 function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isSyncing||isRendering)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();return;}if(!wasInChatMode&&ca&&hasSession){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';syncPanel();renderTitle();return;}syncPanel();renderTitle();}).observe(p,{attributes:true,attributeFilter:['class']});}
 export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderTitle();}
 export function updateActiveTabTitle(t:string):void{const at=getActiveTab();if(at){updateTabTitle(at.id,t);eventCapturedTitle=t;if(!isWelcomeMode)instantRender();}}
