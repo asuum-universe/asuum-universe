@@ -16,7 +16,7 @@ let isWelcomeMode=true,headerToastEl:HTMLElement|null=null,headerToastTimer:Retu
 let gazeRafId:number|null=null,faceGroupEl:HTMLElement|null=null,eyeEls:NodeListOf<HTMLElement>|null=null;
 let mouthEl:HTMLElement|null=null,blinkTimer:ReturnType<typeof setTimeout>|null=null;
 let isSyncing=false,isRendering=false,eventCapturedTitle:string|null=null,hasWaved=false;
-let wasInChatMode=false;
+let wasInChatMode=false,isTransitioning=false;
 const WELCOME_STATE_KEY='asuum_welcome_mode';
 function saveWelcomeState(v:boolean):void{try{if(v)localStorage.setItem(WELCOME_STATE_KEY,'1');else localStorage.removeItem(WELCOME_STATE_KEY);}catch(_){}}
 function loadWelcomeState():boolean{try{return localStorage.getItem(WELCOME_STATE_KEY)==='1';}catch(_){return true;}}
@@ -32,22 +32,31 @@ function stopHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.remove('l
 function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avatarBtn||!faceGroupEl||!eyeEls)return;const r=avatarBtn.getBoundingClientRect(),ax=r.left+r.width/2,ay=r.top+r.height/2,dx=cx-ax,dy=cy-ay,d=Math.hypot(dx,dy);if(d>400){faceGroupEl.style.transform='translate(0,0)';eyeEls.forEach(e=>e.style.transform='translate(0,0)');return;}const a=Math.atan2(dy,dx),n=Math.min(d/400,1),fm=n*n*1.2,em=n*2.5;faceGroupEl.style.transform=`translate(${(Math.cos(a)*fm).toFixed(2)}px,${(Math.sin(a)*fm).toFixed(2)}px)`;eyeEls.forEach(e=>e.style.transform=`translate(${(Math.cos(a)*em).toFixed(2)}px,${(Math.sin(a)*em).toFixed(2)}px)`);};document.addEventListener('mousemove',(e:MouseEvent)=>{if(gazeRafId)cancelAnimationFrame(gazeRafId);gazeRafId=requestAnimationFrame(()=>upd(e.clientX,e.clientY));});}
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
 function instantRender():void{renderTitle();syncPanel();}
+/**
+ * ✅ ENTER WELCOME MODE — Header BIG, avatar CENTERED, wave hello
+ * Uses isTransitioning lock to prevent watchPanel interference
+ */
 function enterWelcomeMode():void{
+  if(isTransitioning)return;
+  isTransitioning=true;
   isWelcomeMode=true;saveWelcomeState(true);
   eventCapturedTitle=null;editingTabId=null;editOrigTitle='';
   closeMenu();resetWave();
-  if(headerAreaEl){headerAreaEl.classList.remove('header-closed');headerAreaEl.classList.remove('awning-open');headerAreaEl.classList.remove('welcome-collapsed');}
+  if(headerAreaEl){
+    headerAreaEl.classList.remove('header-closed');
+    headerAreaEl.classList.remove('awning-open');
+    headerAreaEl.classList.remove('welcome-collapsed');
+    // Force reflow so browser registers class removal before syncPanel
+    void headerAreaEl.offsetHeight;
+  }
   syncPanel();renderTitle();
-  setTimeout(()=>triggerWave(),400);
+  setTimeout(()=>{triggerWave();isTransitioning=false;},400);
 }
 /**
- * ✅ EXIT WELCOME MODE — CRITICAL ORDER:
- * 1. Set isWelcomeMode=false FIRST (prevents syncPanel from re-adding welcome-header)
- * 2. Remove all welcome classes
- * 3. Call syncPanel (now correctly adds chat mode classes)
- * 4. Render title in next frame (ensures DOM is ready)
+ * ✅ EXIT WELCOME MODE — Header THIN, avatar LEFT, title visible
  */
 function exitWelcomeMode(title?:string):void{
+  isTransitioning=true;
   isWelcomeMode=false;saveWelcomeState(false);
   if(title)eventCapturedTitle=title;
   resetWave();
@@ -59,7 +68,7 @@ function exitWelcomeMode(title?:string):void{
     headerAreaEl.classList.remove('awning-open');
   }
   syncPanel();
-  requestAnimationFrame(()=>{renderTitle();});
+  requestAnimationFrame(()=>{renderTitle();isTransitioning=false;});
 }
 export function initializeHeaderUI():void{
   console.log('😊 Header UI (V1 + Wave + Laser Shimmer + Arrow Icon)');
@@ -129,12 +138,14 @@ function openMenu(id:string,anchor:HTMLElement):void{closeMenu();tabMenuForId=id
 function closeMenu():void{if(tabMenuEl){tabMenuEl.remove();tabMenuEl=null;tabMenuForId=null;}}
 function wireGlobalClose():void{document.addEventListener('click',(e:Event):void=>{if(tabMenuEl&&!tabMenuEl.contains(e.target as Node))closeMenu();});}
 /**
- * ✅ SYNC PANEL — STRICT MODE CHECK
- * Only adds welcome-header when BOTH isWelcomeMode AND !chat-active are true.
- * When isWelcomeMode=false, NEVER adds welcome-header regardless of chat-active state.
+ * ✅ SYNC PANEL — Respects isTransitioning lock
+ * Only adds welcome-header when isWelcomeMode=true AND !chat-active
  */
 function syncPanel():void{if(isSyncing)return;isSyncing=true;try{const p=document.getElementById('mainPanel');if(!p||!headerAreaEl)return;const ca=p.classList.contains('chat-active');if(isWelcomeMode&&!ca){headerAreaEl.classList.add('welcome-header');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');}else{headerAreaEl.classList.remove('welcome-header');headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');if(ca)p.classList.remove('new-tab-mode');}headerAreaEl.classList.remove('header-hidden');Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});}finally{requestAnimationFrame(()=>{isSyncing=false;});}}
-function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isSyncing||isRendering)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();return;}if(!wasInChatMode&&ca&&hasSession){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';syncPanel();renderTitle();return;}syncPanel();renderTitle();}).observe(p,{attributes:true,attributeFilter:['class']});}
+/**
+ * ✅ WATCH PANEL — Skips during transitions to prevent race conditions
+ */
+function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isSyncing||isRendering||isTransitioning)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();return;}if(!wasInChatMode&&ca&&hasSession){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';syncPanel();renderTitle();return;}syncPanel();renderTitle();}).observe(p,{attributes:true,attributeFilter:['class']});}
 export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderTitle();}
 export function updateActiveTabTitle(t:string):void{const at=getActiveTab();if(at){updateTabTitle(at.id,t);eventCapturedTitle=t;if(!isWelcomeMode)instantRender();}}
 export function getActiveTabSessionId():string|null{return getActiveSessionId();}
