@@ -9,8 +9,10 @@ const IC_CLOSE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const MOUTH_CLASSES=['','happy','thinking','surprised','excited','love','confused','sleepy'];
 let currentMouthIndex=0,injected=false,editingTabId:string|null=null,editOrigTitle='';
 let tabMenuEl:HTMLElement|null=null,tabMenuForId:string|null=null;
-// ✅ headerEl = #headerContainer — the ONLY element we toggle classes on
-let headerEl:HTMLElement|null=null,avatarBtn:HTMLElement|null=null,titleWrapEl:HTMLElement|null=null;
+// ✅ headerAreaEl = #headerArea (.header-area div) — CSS classes toggle here
+// ✅ headerContainerEl = #headerContainer — DOM injection happens inside this
+let headerAreaEl:HTMLElement|null=null,headerContainerEl:HTMLElement|null=null;
+let avatarBtn:HTMLElement|null=null,titleWrapEl:HTMLElement|null=null;
 let reopenLineEl:HTMLElement|null=null,reopenArrowEl:HTMLElement|null=null,closeBtnEl:HTMLElement|null=null;
 let leftHandEl:HTMLElement|null=null,rightHandEl:HTMLElement|null=null;
 let isWelcomeMode=true,headerToastEl:HTMLElement|null=null,headerToastTimer:ReturnType<typeof setTimeout>|null=null;
@@ -24,29 +26,37 @@ function loadWelcomeState():boolean{try{return localStorage.getItem(WELCOME_STAT
 function toast(msg:string):void{if(!headerToastEl){headerToastEl=document.createElement('div');headerToastEl.className='hdr-toast';document.body.appendChild(headerToastEl);}if(headerToastTimer)clearTimeout(headerToastTimer);headerToastEl.classList.remove('show');void headerToastEl.offsetWidth;headerToastEl.textContent=msg;headerToastEl.classList.add('show');headerToastTimer=setTimeout(()=>{headerToastEl?.classList.remove('show');},3000);}
 function onAvatarClick(e:MouseEvent):void{e.stopPropagation();closeMenu();if(editingTabId){editingTabId=null;renderTitle();}currentMouthIndex=(currentMouthIndex+1)%MOUTH_CLASSES.length;setMouth(currentMouthIndex);triggerWave();}
 function setMouth(i:number):void{if(!mouthEl)return;MOUTH_CLASSES.forEach(c=>{if(c)mouthEl!.classList.remove(c);});if(MOUTH_CLASSES[i])mouthEl.classList.add(MOUTH_CLASSES[i]);}
-function onCloseHeader():void{if(!headerEl)return;closeMenu();if(editingTabId){editingTabId=null;renderTitle();}headerEl.classList.contains('awning-open')?headerEl.classList.remove('awning-open'):headerEl.classList.add('header-closed');}
-function onReopenLine():void{if(!headerEl)return;closeMenu();if(editingTabId){editingTabId=null;renderTitle();}headerEl.classList.remove('header-closed');headerEl.classList.add('awning-open');}
+function onCloseHeader():void{if(!headerAreaEl)return;closeMenu();if(editingTabId){editingTabId=null;renderTitle();}headerAreaEl.classList.contains('awning-open')?headerAreaEl.classList.remove('awning-open'):headerAreaEl.classList.add('header-closed');}
+function onReopenLine():void{if(!headerAreaEl)return;closeMenu();if(editingTabId){editingTabId=null;renderTitle();}headerAreaEl.classList.remove('header-closed');headerAreaEl.classList.add('awning-open');}
 function triggerWave():void{if(hasWaved||!leftHandEl||!rightHandEl||!mouthEl)return;hasWaved=true;setMouth(1);leftHandEl.classList.add('hand-visible');rightHandEl.classList.add('hand-visible');rightHandEl.classList.add('hand-wave');setTimeout(()=>{if(leftHandEl)leftHandEl.classList.remove('hand-visible');if(rightHandEl){rightHandEl.classList.remove('hand-visible');rightHandEl.classList.remove('hand-wave');}},2000);}
 function resetWave():void{hasWaved=false;}
 function startHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.add('laser-shimmer-active');}
 function stopHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.remove('laser-shimmer-active');}
 function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avatarBtn||!faceGroupEl||!eyeEls)return;const r=avatarBtn.getBoundingClientRect(),ax=r.left+r.width/2,ay=r.top+r.height/2,dx=cx-ax,dy=cy-ay,d=Math.hypot(dx,dy);if(d>400){faceGroupEl.style.transform='translate(0,0)';eyeEls.forEach(e=>e.style.transform='translate(0,0)');return;}const a=Math.atan2(dy,dx),n=Math.min(d/400,1),fm=n*n*1.2,em=n*2.5;faceGroupEl.style.transform=`translate(${(Math.cos(a)*fm).toFixed(2)}px,${(Math.sin(a)*fm).toFixed(2)}px)`;eyeEls.forEach(e=>e.style.transform=`translate(${(Math.cos(a)*em).toFixed(2)}px,${(Math.sin(a)*em).toFixed(2)}px)`);};document.addEventListener('mousemove',(e:MouseEvent)=>{if(gazeRafId)cancelAnimationFrame(gazeRafId);gazeRafId=requestAnimationFrame(()=>upd(e.clientX,e.clientY));});}
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
+/**
+ * ENTER WELCOME MODE
+ * Adds welcome-header to #headerArea → CSS: .header-area.welcome-header:not(.welcome-collapsed) .header-container → 60px
+ */
 function enterWelcomeMode():void{
   isWelcomeMode=true;saveWelcomeState(true);
   eventCapturedTitle=null;editingTabId=null;editOrigTitle='';
   closeMenu();resetWave();
-  if(headerEl){
-    headerEl.classList.remove('welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
-    void headerEl.offsetHeight;
-    headerEl.classList.add('welcome-header');
-    Object.assign(headerEl.style,{display:'',opacity:'1',pointerEvents:''});
+  if(headerAreaEl){
+    headerAreaEl.classList.remove('welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
+    void headerAreaEl.offsetHeight;
+    headerAreaEl.classList.add('welcome-header');
+    Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
   }
   const p=document.getElementById('mainPanel');
   if(p)p.classList.remove('has-tabs');
   renderTitle();
   setTimeout(()=>triggerWave(),400);
 }
+/**
+ * EXIT WELCOME MODE
+ * Removes welcome-header from #headerArea → CSS: .header-container defaults to 36px
+ */
 function exitWelcomeMode(title?:string):void{
   isWelcomeMode=false;saveWelcomeState(false);
   wasInChatMode=true;
@@ -54,9 +64,9 @@ function exitWelcomeMode(title?:string):void{
   resetWave();
   if(leftHandEl)leftHandEl.classList.remove('hand-visible');
   if(rightHandEl){rightHandEl.classList.remove('hand-visible');rightHandEl.classList.remove('hand-wave');}
-  if(headerEl){
-    headerEl.classList.remove('welcome-header','welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
-    Object.assign(headerEl.style,{display:'',opacity:'1',pointerEvents:''});
+  if(headerAreaEl){
+    headerAreaEl.classList.remove('welcome-header','welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
+    Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
   }
   const p=document.getElementById('mainPanel');
   if(p){p.classList.remove('has-tabs');p.classList.remove('new-tab-mode');}
@@ -64,8 +74,11 @@ function exitWelcomeMode(title?:string):void{
 }
 export function initializeHeaderUI():void{
   console.log('😊 Header UI (V1 + Wave + Laser Shimmer + Arrow Icon)');
-  // ✅ FIXED: Use #headerContainer directly — it exists in HTML
-  headerEl=document.getElementById('headerContainer');
+  // ✅ CORRECT SELECTORS matching index.html structure:
+  // #headerArea = .header-area div (parent) — CSS class toggling
+  // #headerContainer = .header-container div (child) — DOM injection
+  headerAreaEl=document.getElementById('headerArea');
+  headerContainerEl=document.getElementById('headerContainer');
   const savedWelcome=loadWelcomeState();
   const p=document.getElementById('mainPanel');
   const cs=getCurrentSession();
@@ -85,36 +98,40 @@ export function initializeHeaderUI():void{
   renderTitle();
   if(isWelcomeMode){enterWelcomeMode();}else{exitWelcomeMode(cs?.title||'New Chat');}
 }
+/**
+ * INJECT STRUCTURE
+ * reopen-line & reopen-arrow → appended to #headerArea (absolute positioned relative to .header-area)
+ * header-top-row → appended to #headerContainer (inside .header-container)
+ */
 function injectStructure():void{
   if(injected)return;
-  const hc=document.getElementById('headerContainer');
-  if(!hc)return;
-  // Create inner wrapper for height/padding transitions
-  const inner=document.createElement('div');inner.className='header-container-inner';
-  // Move existing children into inner wrapper
-  while(hc.firstChild)inner.appendChild(hc.firstChild);
-  hc.appendChild(inner);
+  const ha=headerAreaEl;
+  const hc=headerContainerEl;
+  if(!ha||!hc)return;
 
+  // Reopen line & arrow → append to .header-area (parent)
   reopenLineEl=document.createElement('div');reopenLineEl.className='reopen-line';reopenLineEl.title='Open Header';
   reopenLineEl.addEventListener('click',(e:MouseEvent)=>{e.stopPropagation();onReopenLine();});
   reopenLineEl.addEventListener('mouseenter',()=>{if(reopenArrowEl)reopenArrowEl.classList.add('visible');});
   reopenLineEl.addEventListener('mouseleave',()=>{if(reopenArrowEl)reopenArrowEl.classList.remove('visible');});
-  hc.appendChild(reopenLineEl);
-  reopenArrowEl=document.createElement('div');reopenArrowEl.className='reopen-arrow-icon';reopenArrowEl.innerHTML='<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';hc.appendChild(reopenArrowEl);
+  ha.appendChild(reopenLineEl);
+  reopenArrowEl=document.createElement('div');reopenArrowEl.className='reopen-arrow-icon';reopenArrowEl.innerHTML='<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';ha.appendChild(reopenArrowEl);
+
+  // Header top row → append to .header-container (child)
   const tr=document.createElement('div');tr.className='header-top-row';
   tr.addEventListener('click',(e:MouseEvent)=>{
-    if(!headerEl)return;
+    if(!headerAreaEl)return;
     const tgt=e.target as HTMLElement;
     if(tgt.closest('.header-avatar-toggle')||tgt.closest('.header-close-btn'))return;
     if(!isWelcomeMode)return;
-    if(!headerEl.classList.contains('welcome-collapsed')){
-      e.stopPropagation();headerEl.classList.add('welcome-collapsed');
+    if(!headerAreaEl.classList.contains('welcome-collapsed')){
+      e.stopPropagation();headerAreaEl.classList.add('welcome-collapsed');
     }else{
-      e.stopPropagation();headerEl.classList.remove('welcome-collapsed');setTimeout(()=>triggerWave(),300);
+      e.stopPropagation();headerAreaEl.classList.remove('welcome-collapsed');setTimeout(()=>triggerWave(),300);
     }
   });
   avatarBtn=document.createElement('div');avatarBtn.className='header-avatar-toggle';avatarBtn.title='Change expression';avatarBtn.addEventListener('click',onAvatarClick);
-  avatarBtn.addEventListener('mouseenter',()=>{if(isWelcomeMode&&!headerEl?.classList.contains('welcome-collapsed')){resetWave();setTimeout(()=>triggerWave(),50);}});
+  avatarBtn.addEventListener('mouseenter',()=>{if(isWelcomeMode&&!headerAreaEl?.classList.contains('welcome-collapsed')){resetWave();setTimeout(()=>triggerWave(),50);}});
   const ci2=document.createElement('div');ci2.className='pure-circle';faceGroupEl=document.createElement('div');faceGroupEl.className='face-group';
   const eyes=document.createElement('div');eyes.className='capsule-eyes';eyes.appendChild(Object.assign(document.createElement('div'),{className:'capsule-eye'}));eyes.appendChild(Object.assign(document.createElement('div'),{className:'capsule-eye'}));
   mouthEl=document.createElement('div');mouthEl.className='mouth';faceGroupEl.appendChild(eyes);faceGroupEl.appendChild(mouthEl);ci2.appendChild(faceGroupEl);avatarBtn.appendChild(ci2);
@@ -123,7 +140,7 @@ function injectStructure():void{
   tr.appendChild(avatarBtn);eyeEls=avatarBtn.querySelectorAll('.capsule-eye')as NodeListOf<HTMLElement>;
   titleWrapEl=document.createElement('div');titleWrapEl.className='header-title-area';titleWrapEl.id='headerTitleArea';tr.appendChild(titleWrapEl);
   closeBtnEl=document.createElement('button');closeBtnEl.className='header-close-btn';closeBtnEl.title='Collapse';closeBtnEl.innerHTML=IC_CLOSE;closeBtnEl.addEventListener('click',(e:MouseEvent)=>{e.stopPropagation();onCloseHeader();});tr.appendChild(closeBtnEl);
-  inner.appendChild(tr);injected=true;
+  hc.appendChild(tr);injected=true;
 }
 function title():string{if(isWelcomeMode)return'';if(eventCapturedTitle)return eventCapturedTitle;const s=getCurrentSession();if(s?.title)return s.title;const at=getActiveTab();if(at?.title)return at.title;return'New Chat';}
 function renderTitle():void{
