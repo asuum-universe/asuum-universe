@@ -15,7 +15,7 @@ let leftHandEl:HTMLElement|null=null,rightHandEl:HTMLElement|null=null;
 let isWelcomeMode=true,headerToastEl:HTMLElement|null=null,headerToastTimer:ReturnType<typeof setTimeout>|null=null;
 let gazeRafId:number|null=null,faceGroupEl:HTMLElement|null=null,eyeEls:NodeListOf<HTMLElement>|null=null;
 let mouthEl:HTMLElement|null=null,blinkTimer:ReturnType<typeof setTimeout>|null=null;
-let isSyncing=false,isRendering=false,eventCapturedTitle:string|null=null,hasWaved=false;
+let isRendering=false,eventCapturedTitle:string|null=null,hasWaved=false;
 let wasInChatMode=false;
 const WELCOME_STATE_KEY='asuum_welcome_mode';
 function saveWelcomeState(v:boolean):void{try{if(v)localStorage.setItem(WELCOME_STATE_KEY,'1');else localStorage.removeItem(WELCOME_STATE_KEY);}catch(_){}}
@@ -31,12 +31,10 @@ function startHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.add('las
 function stopHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.remove('laser-shimmer-active');}
 function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avatarBtn||!faceGroupEl||!eyeEls)return;const r=avatarBtn.getBoundingClientRect(),ax=r.left+r.width/2,ay=r.top+r.height/2,dx=cx-ax,dy=cy-ay,d=Math.hypot(dx,dy);if(d>400){faceGroupEl.style.transform='translate(0,0)';eyeEls.forEach(e=>e.style.transform='translate(0,0)');return;}const a=Math.atan2(dy,dx),n=Math.min(d/400,1),fm=n*n*1.2,em=n*2.5;faceGroupEl.style.transform=`translate(${(Math.cos(a)*fm).toFixed(2)}px,${(Math.sin(a)*fm).toFixed(2)}px)`;eyeEls.forEach(e=>e.style.transform=`translate(${(Math.cos(a)*em).toFixed(2)}px,${(Math.sin(a)*em).toFixed(2)}px)`);};document.addEventListener('mousemove',(e:MouseEvent)=>{if(gazeRafId)cancelAnimationFrame(gazeRafId);gazeRafId=requestAnimationFrame(()=>upd(e.clientX,e.clientY));});}
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
-function instantRender():void{renderTitle();syncPanel();}
 /**
- * ENTER WELCOME MODE — Force reflow ensures CSS transition triggers
- * 1. Remove all conflicting classes
- * 2. Force browser reflow (registers removal)
- * 3. Add welcome-header (CSS animates 36px → 60px)
+ * ENTER WELCOME MODE
+ * Removes ALL conflicting classes → force reflow → adds welcome-header
+ * CSS handles animation: .welcome-header:not(.welcome-collapsed) → 60px
  */
 function enterWelcomeMode():void{
   isWelcomeMode=true;saveWelcomeState(true);
@@ -54,9 +52,8 @@ function enterWelcomeMode():void{
   setTimeout(()=>triggerWave(),400);
 }
 /**
- * EXIT WELCOME MODE — Force reflow ensures CSS transition triggers
- * 1. Set wasInChatMode first (prevents observer re-trigger)
- * 2. Remove welcome-header (CSS animates 60px → 36px)
+ * EXIT WELCOME MODE
+ * Sets wasInChatMode first → removes welcome-header → CSS animates to 36px
  */
 function exitWelcomeMode(title?:string):void{
   isWelcomeMode=false;saveWelcomeState(false);
@@ -86,13 +83,15 @@ export function initializeHeaderUI():void{
   setExplicitNewTabClicked(false);injectStructure();wireGlobalClose();watchPanel();wireGazeTracking();wireBlink();
   document.addEventListener('asuum:ai-thinking-start',()=>startHeaderShimmer());
   document.addEventListener('asuum:ai-thinking-stop',()=>stopHeaderShimmer());
-  onTabsChange(()=>{if(isWelcomeMode)return;instantRender();});
+  onTabsChange(()=>{if(isWelcomeMode)return;renderTitle();});
   document.addEventListener('asuum:welcome-mode',()=>{enterWelcomeMode();setExplicitNewTabClicked(false);clearInjectedColor();});
   document.addEventListener('asuum:chat-mode',((e:Event)=>{const ce=e as CustomEvent;const t=ce?.detail?.title||'';exitWelcomeMode(t);})as EventListener);
   document.addEventListener('asuum:message-sent',()=>{if(isWelcomeMode){const s=getCurrentSession();exitWelcomeMode(s?.title||'New Chat');}});
   document.addEventListener('asuum:session-opened',((e:Event)=>{const ce=e as CustomEvent;const t=ce?.detail?.title||'Chat';exitWelcomeMode(t);const p2=document.getElementById('mainPanel');if(p2)p2.classList.add('chat-active');})as EventListener);
-  document.addEventListener('asuum:title-updated',((e:Event)=>{const ce=e as CustomEvent;if(ce?.detail?.title){eventCapturedTitle=ce.detail.title;if(!isWelcomeMode)instantRender();}})as EventListener);
-  instantRender();if(isWelcomeMode)setTimeout(()=>triggerWave(),600);
+  document.addEventListener('asuum:title-updated',((e:Event)=>{const ce=e as CustomEvent;if(ce?.detail?.title){eventCapturedTitle=ce.detail.title;if(!isWelcomeMode)renderTitle();}})as EventListener);
+  renderTitle();
+  // Set initial header state based on current mode
+  if(isWelcomeMode){enterWelcomeMode();}else{exitWelcomeMode(cs?.title||'New Chat');}
 }
 function injectStructure():void{
   if(injected)return;const hc=document.getElementById('headerContainer');if(!hc||!headerAreaEl)return;
@@ -140,8 +139,11 @@ function renderTitle():void{
 function openMenu(id:string,anchor:HTMLElement):void{closeMenu();tabMenuForId=id;tabMenuEl=document.createElement('div');tabMenuEl.className='tab-menu';tabMenuEl.innerHTML=`<button class="tab-menu-item" data-action="rename">${IC_RENAME}<span>Rename</span></button><button class="tab-menu-item danger" data-action="delete">${IC_TRASH}<span>Delete</span></button>`;document.body.appendChild(tabMenuEl);const r=anchor.getBoundingClientRect(),mw=tabMenuEl.offsetWidth,mh=tabMenuEl.offsetHeight;tabMenuEl.style.left=`${Math.max(8,Math.min(r.right-mw,window.innerWidth-mw-8))}px`;let top=r.bottom+6;if(top+mh>window.innerHeight-8)top=r.top-mh-6;tabMenuEl.style.top=`${top}px`;tabMenuEl.querySelector('[data-action="rename"]')?.addEventListener('click',():void=>{closeMenu();if(tabMenuForId)startEditingTab(tabMenuForId);});tabMenuEl.querySelector('[data-action="delete"]')?.addEventListener('click',():void=>{closeMenu();});}
 function closeMenu():void{if(tabMenuEl){tabMenuEl.remove();tabMenuEl=null;tabMenuForId=null;}}
 function wireGlobalClose():void{document.addEventListener('click',(e:Event):void=>{if(tabMenuEl&&!tabMenuEl.contains(e.target as Node))closeMenu();});}
-function syncPanel():void{if(isSyncing)return;isSyncing=true;try{const p=document.getElementById('mainPanel');if(!p||!headerAreaEl)return;const ca=p.classList.contains('chat-active');if(isWelcomeMode&&!ca){if(!headerAreaEl.classList.contains('welcome-header'))headerAreaEl.classList.add('welcome-header');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');}else if(!isWelcomeMode&&ca){if(headerAreaEl.classList.contains('welcome-header'))headerAreaEl.classList.remove('welcome-header');headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');p.classList.remove('new-tab-mode');}headerAreaEl.classList.remove('header-hidden');Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});}finally{requestAnimationFrame(()=>{isSyncing=false;});}}
-function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isSyncing||isRendering)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();return;}if(!wasInChatMode&&ca&&hasSession){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';exitWelcomeMode(cs?.title||'New Chat');return;}syncPanel();renderTitle();}).observe(p,{attributes:true,attributeFilter:['class']});}
+/**
+ * WATCH PANEL — Only detects chat↔welcome transitions
+ * No syncPanel, no isSyncing lock, just direct enter/exit calls
+ */
+function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isRendering)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();return;}if(!wasInChatMode&&ca&&hasSession){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';exitWelcomeMode(cs?.title||'New Chat');return;}renderTitle();}).observe(p,{attributes:true,attributeFilter:['class']});}
 export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderTitle();}
-export function updateActiveTabTitle(t:string):void{const at=getActiveTab();if(at){updateTabTitle(at.id,t);eventCapturedTitle=t;if(!isWelcomeMode)instantRender();}}
+export function updateActiveTabTitle(t:string):void{const at=getActiveTab();if(at){updateTabTitle(at.id,t);eventCapturedTitle=t;if(!isWelcomeMode)renderTitle();}}
 export function getActiveTabSessionId():string|null{return getActiveSessionId();}
