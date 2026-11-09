@@ -9,7 +9,11 @@ const IC_CLOSE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const MOUTH_CLASSES=['','happy','thinking','surprised','excited','love','confused','sleepy'];
 let currentMouthIndex=0,injected=false,editingTabId:string|null=null,editOrigTitle='';
 let tabMenuEl:HTMLElement|null=null,tabMenuForId:string|null=null;
-let headerAreaEl:HTMLElement|null=null,avatarBtn:HTMLElement|null=null,titleWrapEl:HTMLElement|null=null;
+// ✅ TWO SEPARATE REFERENCES:
+// headerAreaEl = .header-area div (parent) — for CSS class toggling only
+// headerContainerEl = #headerContainer — for DOM injection only
+let headerAreaEl:HTMLElement|null=null,headerContainerEl:HTMLElement|null=null;
+let avatarBtn:HTMLElement|null=null,titleWrapEl:HTMLElement|null=null;
 let reopenLineEl:HTMLElement|null=null,reopenArrowEl:HTMLElement|null=null,closeBtnEl:HTMLElement|null=null;
 let leftHandEl:HTMLElement|null=null,rightHandEl:HTMLElement|null=null;
 let isWelcomeMode=true,headerToastEl:HTMLElement|null=null,headerToastTimer:ReturnType<typeof setTimeout>|null=null;
@@ -31,6 +35,11 @@ function startHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.add('las
 function stopHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.remove('laser-shimmer-active');}
 function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avatarBtn||!faceGroupEl||!eyeEls)return;const r=avatarBtn.getBoundingClientRect(),ax=r.left+r.width/2,ay=r.top+r.height/2,dx=cx-ax,dy=cy-ay,d=Math.hypot(dx,dy);if(d>400){faceGroupEl.style.transform='translate(0,0)';eyeEls.forEach(e=>e.style.transform='translate(0,0)');return;}const a=Math.atan2(dy,dx),n=Math.min(d/400,1),fm=n*n*1.2,em=n*2.5;faceGroupEl.style.transform=`translate(${(Math.cos(a)*fm).toFixed(2)}px,${(Math.sin(a)*fm).toFixed(2)}px)`;eyeEls.forEach(e=>e.style.transform=`translate(${(Math.cos(a)*em).toFixed(2)}px,${(Math.sin(a)*em).toFixed(2)}px)`);};document.addEventListener('mousemove',(e:MouseEvent)=>{if(gazeRafId)cancelAnimationFrame(gazeRafId);gazeRafId=requestAnimationFrame(()=>upd(e.clientX,e.clientY));});}
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
+/**
+ * ENTER WELCOME MODE
+ * Toggles classes on headerAreaEl (.header-area parent div)
+ * CSS rule: .header-area.welcome-header:not(.welcome-collapsed) .header-container → 60px
+ */
 function enterWelcomeMode():void{
   isWelcomeMode=true;saveWelcomeState(true);
   eventCapturedTitle=null;editingTabId=null;editOrigTitle='';
@@ -46,6 +55,10 @@ function enterWelcomeMode():void{
   renderTitle();
   setTimeout(()=>triggerWave(),400);
 }
+/**
+ * EXIT WELCOME MODE
+ * Removes welcome-header from headerAreaEl → CSS transitions to 36px
+ */
 function exitWelcomeMode(title?:string):void{
   isWelcomeMode=false;saveWelcomeState(false);
   wasInChatMode=true;
@@ -63,8 +76,11 @@ function exitWelcomeMode(title?:string):void{
 }
 export function initializeHeaderUI():void{
   console.log('😊 Header UI (V1 + Wave + Laser Shimmer + Arrow Icon)');
-  // ✅ FIXED: headerArea ID doesn't exist in HTML. Use headerContainer's parent (.header-area div)
-  headerAreaEl=document.getElementById('headerContainer')?.parentElement as HTMLElement|null;
+  // ✅ CRITICAL FIX: Two separate element references
+  // headerContainerEl = #headerContainer (for DOM injection)
+  // headerAreaEl = parent of #headerContainer = .header-area div (for CSS class toggling)
+  headerContainerEl=document.getElementById('headerContainer');
+  headerAreaEl=headerContainerEl?.parentElement as HTMLElement|null;
   const savedWelcome=loadWelcomeState();
   const p=document.getElementById('mainPanel');
   const cs=getCurrentSession();
@@ -84,14 +100,23 @@ export function initializeHeaderUI():void{
   renderTitle();
   if(isWelcomeMode){enterWelcomeMode();}else{exitWelcomeMode(cs?.title||'New Chat');}
 }
+/**
+ * INJECT STRUCTURE — Uses headerContainerEl (#headerContainer) for DOM injection
+ * NOT headerAreaEl — that's only for CSS class toggling
+ */
 function injectStructure():void{
-  if(injected)return;const hc=document.getElementById('headerContainer');if(!hc||!headerAreaEl)return;
+  if(injected)return;
+  // ✅ Use headerContainerEl for DOM injection, NOT headerAreaEl
+  const hc=headerContainerEl;
+  if(!hc||!headerAreaEl)return;
   reopenLineEl=document.createElement('div');reopenLineEl.className='reopen-line';reopenLineEl.title='Open Header';
   reopenLineEl.addEventListener('click',(e:MouseEvent)=>{e.stopPropagation();onReopenLine();});
   reopenLineEl.addEventListener('mouseenter',()=>{if(reopenArrowEl)reopenArrowEl.classList.add('visible');});
   reopenLineEl.addEventListener('mouseleave',()=>{if(reopenArrowEl)reopenArrowEl.classList.remove('visible');});
+  // ✅ Append to headerAreaEl (.header-area) since reopen-line is positioned absolute relative to it
   headerAreaEl.appendChild(reopenLineEl);
-  reopenArrowEl=document.createElement('div');reopenArrowEl.className='reopen-arrow-icon';reopenArrowEl.innerHTML='<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';headerAreaEl.appendChild(reopenArrowEl);
+  reopenArrowEl=document.createElement('div');reopenArrowEl.className='reopen-arrow-icon';reopenArrowEl.innerHTML='<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';
+  headerAreaEl.appendChild(reopenArrowEl);
   const tr=document.createElement('div');tr.className='header-top-row';
   tr.addEventListener('click',(e:MouseEvent)=>{
     if(!headerAreaEl)return;
@@ -114,6 +139,7 @@ function injectStructure():void{
   tr.appendChild(avatarBtn);eyeEls=avatarBtn.querySelectorAll('.capsule-eye')as NodeListOf<HTMLElement>;
   titleWrapEl=document.createElement('div');titleWrapEl.className='header-title-area';titleWrapEl.id='headerTitleArea';tr.appendChild(titleWrapEl);
   closeBtnEl=document.createElement('button');closeBtnEl.className='header-close-btn';closeBtnEl.title='Collapse';closeBtnEl.innerHTML=IC_CLOSE;closeBtnEl.addEventListener('click',(e:MouseEvent)=>{e.stopPropagation();onCloseHeader();});tr.appendChild(closeBtnEl);
+  // ✅ header-top-row goes INSIDE #headerContainer, not .header-area
   hc.appendChild(tr);injected=true;
 }
 function title():string{if(isWelcomeMode)return'';if(eventCapturedTitle)return eventCapturedTitle;const s=getCurrentSession();if(s?.title)return s.title;const at=getActiveTab();if(at?.title)return at.title;return'New Chat';}
