@@ -32,50 +32,44 @@ function stopHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.remove('l
 function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avatarBtn||!faceGroupEl||!eyeEls)return;const r=avatarBtn.getBoundingClientRect(),ax=r.left+r.width/2,ay=r.top+r.height/2,dx=cx-ax,dy=cy-ay,d=Math.hypot(dx,dy);if(d>400){faceGroupEl.style.transform='translate(0,0)';eyeEls.forEach(e=>e.style.transform='translate(0,0)');return;}const a=Math.atan2(dy,dx),n=Math.min(d/400,1),fm=n*n*1.2,em=n*2.5;faceGroupEl.style.transform=`translate(${(Math.cos(a)*fm).toFixed(2)}px,${(Math.sin(a)*fm).toFixed(2)}px)`;eyeEls.forEach(e=>e.style.transform=`translate(${(Math.cos(a)*em).toFixed(2)}px,${(Math.sin(a)*em).toFixed(2)}px)`);};document.addEventListener('mousemove',(e:MouseEvent)=>{if(gazeRafId)cancelAnimationFrame(gazeRafId);gazeRafId=requestAnimationFrame(()=>upd(e.clientX,e.clientY));});}
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
 /**
- * APPLY WELCOME STATE — Directly sets header classes for big/centered mode
- */
-function applyWelcomeState():void{
-  if(!headerAreaEl)return;
-  headerAreaEl.classList.add('welcome-header');
-  headerAreaEl.classList.remove('welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
-  Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
-  const p=document.getElementById('mainPanel');
-  if(p)p.classList.remove('has-tabs');
-}
-/**
- * APPLY CHAT STATE — Directly sets header classes for thin/left-aligned mode
- */
-function applyChatState():void{
-  if(!headerAreaEl)return;
-  headerAreaEl.classList.remove('welcome-header','welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
-  Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
-  const p=document.getElementById('mainPanel');
-  if(p){p.classList.remove('has-tabs');p.classList.remove('new-tab-mode');}
-}
-/**
- * ENTER WELCOME MODE
+ * ENTER WELCOME MODE — Always runs, always sets correct classes
+ * No early return — CSS is idempotent, adding same class twice is safe
  */
 function enterWelcomeMode():void{
-  if(isWelcomeMode&&headerAreaEl?.classList.contains('welcome-header'))return;
   isWelcomeMode=true;saveWelcomeState(true);
   eventCapturedTitle=null;editingTabId=null;editOrigTitle='';
   closeMenu();resetWave();
-  applyWelcomeState();
+  if(headerAreaEl){
+    // Remove ALL non-welcome classes first
+    headerAreaEl.classList.remove('welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
+    // Force browser to register removals before adding welcome-header
+    void headerAreaEl.offsetHeight;
+    // Add welcome-header — CSS transitions height 36px → 60px
+    headerAreaEl.classList.add('welcome-header');
+    Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
+  }
+  const p=document.getElementById('mainPanel');
+  if(p)p.classList.remove('has-tabs');
   renderTitle();
   setTimeout(()=>triggerWave(),400);
 }
 /**
- * EXIT WELCOME MODE
+ * EXIT WELCOME MODE — Always removes welcome-header
  */
 function exitWelcomeMode(title?:string):void{
-  if(!isWelcomeMode&&!title)return;
   isWelcomeMode=false;saveWelcomeState(false);
   wasInChatMode=true;
   if(title)eventCapturedTitle=title;
   resetWave();
   if(leftHandEl)leftHandEl.classList.remove('hand-visible');
   if(rightHandEl){rightHandEl.classList.remove('hand-visible');rightHandEl.classList.remove('hand-wave');}
-  applyChatState();
+  if(headerAreaEl){
+    // Remove welcome-header — CSS transitions height 60px → 36px
+    headerAreaEl.classList.remove('welcome-header','welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
+    Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
+  }
+  const p=document.getElementById('mainPanel');
+  if(p){p.classList.remove('has-tabs');p.classList.remove('new-tab-mode');}
   requestAnimationFrame(()=>renderTitle());
 }
 export function initializeHeaderUI():void{
@@ -98,7 +92,8 @@ export function initializeHeaderUI():void{
   document.addEventListener('asuum:session-opened',((e:Event)=>{const ce=e as CustomEvent;const t=ce?.detail?.title||'Chat';exitWelcomeMode(t);const p2=document.getElementById('mainPanel');if(p2)p2.classList.add('chat-active');})as EventListener);
   document.addEventListener('asuum:title-updated',((e:Event)=>{const ce=e as CustomEvent;if(ce?.detail?.title){eventCapturedTitle=ce.detail.title;if(!isWelcomeMode)renderTitle();}})as EventListener);
   renderTitle();
-  if(isWelcomeMode){applyWelcomeState();setTimeout(()=>triggerWave(),600);}else{applyChatState();}
+  // Set initial header state
+  if(isWelcomeMode){enterWelcomeMode();}else{exitWelcomeMode(cs?.title||'New Chat');}
 }
 function injectStructure():void{
   if(injected)return;const hc=document.getElementById('headerContainer');if(!hc||!headerAreaEl)return;
@@ -147,9 +142,8 @@ function openMenu(id:string,anchor:HTMLElement):void{closeMenu();tabMenuForId=id
 function closeMenu():void{if(tabMenuEl){tabMenuEl.remove();tabMenuEl=null;tabMenuForId=null;}}
 function wireGlobalClose():void{document.addEventListener('click',(e:Event):void=>{if(tabMenuEl&&!tabMenuEl.contains(e.target as Node))closeMenu();});}
 /**
- * WATCH PANEL — Backup safety net only
- * Primary transitions handled by events (asuum:welcome-mode / asuum:chat-mode)
- * Observer catches edge cases where events might not fire
+ * WATCH PANEL — Safety net for edge cases
+ * Primary transitions handled by events
  */
 function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isRendering)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();}else if(!wasInChatMode&&ca&&hasSession&&!isWelcomeMode){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';exitWelcomeMode(cs?.title||'New Chat');}else{renderTitle();}}).observe(p,{attributes:true,attributeFilter:['class']});}
 export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderTitle();}
