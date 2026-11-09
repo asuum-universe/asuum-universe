@@ -2,14 +2,16 @@
 import { eventBus } from '../../../event-bus';
 import { routeChatRequest, ChatMessage } from '../../../core/ai-router';
 import { appendToCurrent, appendToSession, getCurrentSession, onSessionChange, updateMessageText, createSession, startNewChat, renameSession, deleteSession, removeLastAiMessage, deleteMessagesFromIndex, getMessagesUpTo, ChatSession } from '../services/chat-store';
-import { openRulesModal, refreshRulesDot } from '../../chat-rules/chat-rules-ts/chat-rules-ui';
 import { getActiveTab, assignSessionToTab, createTab, setTabTitleAuto, hasUserRenamed } from '../../header/services/header-tabs-store';
 import { LoadingManager } from '../../../core/loading';
 
+let _openRulesModal:(()=>void)|null=null,_refreshRulesDot:(()=>void)|null=null;
+function getOpenRulesModal():()=>void{if(!_openRulesModal){_openRulesModal=():void=>{const o=document.getElementById('crOverlay');if(o)o.classList.add('active')};}return _openRulesModal;}
+function getRefreshRulesDot():()=>void{if(!_refreshRulesDot){_refreshRulesDot=():void=>{const d=document.getElementById('mmRulesDot');if(d){try{const s=localStorage.getItem('asuum-chat-rules');d.classList.toggle('on',!!s&&s!=='{"quick":[],"custom":""}');}catch{d.classList.remove('on')}}};}return _refreshRulesDot;}
+
 const ICON_EDIT=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
 const ICON_COPY=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-const ICON_CHECK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-const ICON_SAVE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+const ICON_CHECK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;const ICON_SAVE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
 const ICON_LIKE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>`;
 const ICON_DISLIKE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>`;
 const ICON_REGEN=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
@@ -228,8 +230,7 @@ function updateScrollToBottomButton():void{const b=document.getElementById('scro
 function smoothScrollToBottom():void{const l=document.getElementById('chatMessages');if(!l)return;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();requestAnimationFrame(()=>{const rows=l.querySelectorAll('.message-row,.chat-end-marker-wrapper');if(rows.length>0){const last=rows[rows.length-1]as HTMLElement;l.scrollTo({top:last.offsetTop+last.offsetHeight-l.clientHeight+3,behavior:'smooth'})}else l.scrollTo({top:l.scrollHeight,behavior:'smooth'})})}
 
 function wireMainMenu():void{const w=document.getElementById('mmWrap'),b=document.getElementById('mmBtn'),m=document.getElementById('mmMenu');if(!w||!b||!m)return;const close=()=>w.classList.remove('open');b.addEventListener('click',()=>{if(w.classList.contains('open'))close();else{refreshMenuState();w.classList.add('open')}});document.addEventListener('click',(e)=>{if(!w.contains(e.target as Node))close()});document.addEventListener('keydown',(e)=>{if(e.key==='Escape')close()});m.querySelectorAll('.mm-item').forEach((it)=>it.addEventListener('click',()=>{handleMenuAction((it as HTMLElement).dataset.action||'');close()}))}
-function refreshMenuState():void{const m=document.getElementById('mmMenu');if(!m)return;const p=document.getElementById('mainPanel'),ic=!!p&&p.classList.contains('chat-active');m.classList.toggle('welcome-mode',!ic);const s=getCurrentSession(),hc=ic&&!!s&&s.messages.length>0;m.querySelectorAll('.mm-item').forEach((it)=>{const a=(it as HTMLElement).dataset.action;it.classList.toggle('disabled',(a==='rename'||a==='export'||a==='delete')&&!hc)});refreshRulesDot()}
-function handleMenuAction(action:string):void{const s=getCurrentSession();switch(action){case'new-chat':startNewChat();currentRenderedSessionId=null;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();const inp=document.querySelector('.chat-input')as HTMLTextAreaElement|null;if(inp){inp.value='';inp.dispatchEvent(new Event('input'));inp.focus()}break;case'rename':if(!s)return;const n=prompt('Rename:',s.title);if(n?.trim())renameSession(s.id,n.trim());break;case'export':if(!s||!s.messages.length)return;exportSession(s);break;case'rules':openRulesModal();break;case'model-hub':document.getElementById('modelHubBtn')?.click();break;case'delete':if(s&&confirm(`Delete "${s.title}"?`)){deleteSession(s.id);currentRenderedSessionId=null}break}}
+function refreshMenuState():void{const m=document.getElementById('mmMenu');if(!m)return;const p=document.getElementById('mainPanel'),ic=!!p&&p.classList.contains('chat-active');m.classList.toggle('welcome-mode',!ic);const s=getCurrentSession(),hc=ic&&!!s&&s.messages.length>0;m.querySelectorAll('.mm-item').forEach((it)=>{const a=(it as HTMLElement).dataset.action;it.classList.toggle('disabled',(a==='rename'||a==='export'||a==='delete')&&!hc)});getRefreshRulesDot()()}function handleMenuAction(action:string):void{const s=getCurrentSession();switch(action){case'new-chat':startNewChat();currentRenderedSessionId=null;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();const inp=document.querySelector('.chat-input')as HTMLTextAreaElement|null;if(inp){inp.value='';inp.dispatchEvent(new Event('input'));inp.focus()}break;case'rename':if(!s)return;const n=prompt('Rename:',s.title);if(n?.trim())renameSession(s.id,n.trim());break;case'export':if(!s||!s.messages.length)return;exportSession(s);break;case'rules':getOpenRulesModal()();break;case'model-hub':document.getElementById('modelHubBtn')?.click();break;case'delete':if(s&&confirm(`Delete "${s.title}"?`)){deleteSession(s.id);currentRenderedSessionId=null}break}}
 function exportSession(s:ChatSession):void{const lines=['ASUUM EXPORT',`Title: ${s.title}`,`Date: ${new Date().toLocaleString()}`,'---',''];s.messages.forEach(m=>lines.push(`${m.sender==='user'?'You':'Asuum'}: ${m.text}`,''));const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${(s.title||'chat').replace(/[^\w\d-_ ]/g,'').slice(0,40)}.txt`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function showChatScreen():void{const p=document.getElementById('mainPanel');if(p&&!p.classList.contains('chat-active')){p.classList.add('chat-active');setTimeout(()=>smartAutoScroll(),50)}}
 function renderCurrentSession():void{const l=document.getElementById('chatMessages'),p=document.getElementById('mainPanel');if(!l||!p)return;l.innerHTML='';thinkingRow=null;lastUserBubbleEl=null;const s=getCurrentSession();if(!s||!s.messages.length){p.classList.remove('chat-active');currentRenderedSessionId=null;return}p.classList.add('chat-active');currentRenderedSessionId=s.id;s.messages.forEach((m,i)=>{appendMessageNoScroll(m.text,m.sender,i,true);if(m.sender==='ai')addPermanentDivider()});ensureBottomSpacer();scrollToLastMessageProfessional();setTimeout(()=>{rebuildAll();smartAutoScroll()},40)}
@@ -280,10 +281,6 @@ function addPermanentDivider():void{
 
 function ensureBottomSpacer():void{const l=document.getElementById('chatMessages');if(!l)return;if(!document.getElementById('chatEndSpacer')){const s=document.createElement('div');s.id='chatEndSpacer';s.className='chat-end-spacer';l.appendChild(s)}}
 
-/**
- * ✅ UPDATED: Regenerate now deletes ALL messages below the clicked AI message
- * then re-generates from that point with correct context
- */
 function wireActions(actions:HTMLElement,bubble:HTMLElement,_text:string,sender:string,row:HTMLElement):void{
   const cb=actions.querySelector('.copy-btn')as HTMLButtonElement;
   if(cb)cb.addEventListener('click',()=>{silentCopy(bubble.textContent??'');cb.classList.add('copied');setTimeout(()=>cb.classList.remove('copied'),2000)});
@@ -302,32 +299,26 @@ function wireActions(actions:HTMLElement,bubble:HTMLElement,_text:string,sender:
       rb.classList.add('spinning');
 
       try{
-        // ✅ STEP 1: Delete this AI message AND everything below it from store
         deleteMessagesFromIndex(msgIdx);
 
-        // ✅ STEP 2: Remove this AI row and ALL rows below it from DOM
         const chatContainer=document.getElementById('chatMessages');
         if(chatContainer){
           const allRows=Array.from(chatContainer.querySelectorAll('.message-row, .chat-end-marker-wrapper'));
           const thisRowIdx=allRows.indexOf(row);
           if(thisRowIdx>=0){
-            // Remove from this row onwards (inclusive)
             for(let i=allRows.length-1;i>=thisRowIdx;i--){
               allRows[i].remove();
             }
           }
-          // Re-add bottom spacer
           ensureBottomSpacer();
         }
 
-        // ✅ STEP 3: Get context messages UP TO (not including) the deleted AI message
         const contextMessages=getMessagesUpTo(msgIdx-1);
         const msgs:ChatMessage[]=contextMessages.map(m=>({
           role:m.sender==='user'?'user'as const:'assistant'as const,
           content:m.text
         }));
 
-        // ✅ STEP 4: Show thinking indicator and generate new reply
         appendThinkingRow();
         scrollToBottomSmart();
         document.dispatchEvent(new CustomEvent('asuum:ai-thinking-start'));
@@ -381,9 +372,6 @@ function wireActions(actions:HTMLElement,bubble:HTMLElement,_text:string,sender:
   }
 }
 
-/**
- * ✅ Standard AI reply generation (for new messages, not regenerate)
- */
 async function generateAiReply():Promise<void>{
   const targetSession=getCurrentSession();
   const targetSessionId=targetSession?.id??null;
@@ -446,4 +434,4 @@ async function generateAiReply():Promise<void>{
 }
 
 export function appendAiMessage(text:string):void{showChatScreen();appendMessageNoScroll(text,'ai');addPermanentDivider();ensureBottomSpacer();smartAutoScroll()}
-function scrollToLastMessageProfessional():void{const l=document.getElementById('chatMessages');if(!l)return;requestAnimationFrame(()=>{const rows=l.querySelectorAll('.message-row,.chat-end-marker-wrapper');if(!rows.length){l.scrollTo({top:0});return}const last=rows[rows.length-1]as HTMLElement;l.scrollTo({top:last.offsetTop+last.offsetHeight-l.clientHeight+3,behavior:'smooth'})})}
+function scrollToLastMessageProfessional():void{const c=document.getElementById('chatMessages');if(!c)return;requestAnimationFrame(()=>{const ch=c.children;if(ch.length===0)return;const last=ch[ch.length-1]as HTMLElement;c.scrollTo({top:Math.max(0,last.offsetTop+last.offsetHeight-c.clientHeight+3),behavior:'smooth'})})}

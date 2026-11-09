@@ -2,10 +2,27 @@
  * palette-commands.ts — STATIC COMMAND REGISTRY (V1 CLEAN)
  * ✅ Fixed: Added 'Tabs' to group union type
  * ✅ Removed 'Workspaces' (no longer used in V1)
+ * ✅ Fixed: Removed static import of chat-rules-ui to resolve Vite warning
  */
 
 import { startNewChat } from '../../chat-screen/services/chat-store';
-import { openRulesModal } from '../../chat-rules/chat-rules-ts/chat-rules-ui';
+
+/**
+ * Lazy runtime reference for openRulesModal.
+ * Avoids static import conflict with dynamic loading in app.ts.
+ */
+function lazyOpenRulesModal(): void {
+  const overlay = document.getElementById('crOverlay');
+  if (overlay) {
+    overlay.classList.add('active');
+    setTimeout(() => {
+      const ta = document.getElementById('crTextarea') as HTMLTextAreaElement | null;
+      ta?.focus();
+    }, 400);
+    return;
+  }
+  console.warn('⚠️ Chat Rules UI not loaded yet. Please wait.');
+}
 
 // ✅ FIXED: 'Tabs' added, 'Workspaces' removed
 export interface Command {
@@ -66,7 +83,7 @@ export function getStaticCommands(): Command[] {
       icon: ICON_RULES,
       keywords: ['rules', 'settings', 'instructions'],
       group: 'Actions',
-      action: () => openRulesModal(),
+      action: () => lazyOpenRulesModal(),
     },
     {
       id: 'open-hub',
