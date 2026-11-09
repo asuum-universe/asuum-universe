@@ -31,20 +31,13 @@ function startHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.add('las
 function stopHeaderShimmer():void{if(titleWrapEl)titleWrapEl.classList.remove('laser-shimmer-active');}
 function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avatarBtn||!faceGroupEl||!eyeEls)return;const r=avatarBtn.getBoundingClientRect(),ax=r.left+r.width/2,ay=r.top+r.height/2,dx=cx-ax,dy=cy-ay,d=Math.hypot(dx,dy);if(d>400){faceGroupEl.style.transform='translate(0,0)';eyeEls.forEach(e=>e.style.transform='translate(0,0)');return;}const a=Math.atan2(dy,dx),n=Math.min(d/400,1),fm=n*n*1.2,em=n*2.5;faceGroupEl.style.transform=`translate(${(Math.cos(a)*fm).toFixed(2)}px,${(Math.sin(a)*fm).toFixed(2)}px)`;eyeEls.forEach(e=>e.style.transform=`translate(${(Math.cos(a)*em).toFixed(2)}px,${(Math.sin(a)*em).toFixed(2)}px)`);};document.addEventListener('mousemove',(e:MouseEvent)=>{if(gazeRafId)cancelAnimationFrame(gazeRafId);gazeRafId=requestAnimationFrame(()=>upd(e.clientX,e.clientY));});}
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
-/**
- * ENTER WELCOME MODE — Always runs, always sets correct classes
- * No early return — CSS is idempotent, adding same class twice is safe
- */
 function enterWelcomeMode():void{
   isWelcomeMode=true;saveWelcomeState(true);
   eventCapturedTitle=null;editingTabId=null;editOrigTitle='';
   closeMenu();resetWave();
   if(headerAreaEl){
-    // Remove ALL non-welcome classes first
     headerAreaEl.classList.remove('welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
-    // Force browser to register removals before adding welcome-header
     void headerAreaEl.offsetHeight;
-    // Add welcome-header — CSS transitions height 36px → 60px
     headerAreaEl.classList.add('welcome-header');
     Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
   }
@@ -53,9 +46,6 @@ function enterWelcomeMode():void{
   renderTitle();
   setTimeout(()=>triggerWave(),400);
 }
-/**
- * EXIT WELCOME MODE — Always removes welcome-header
- */
 function exitWelcomeMode(title?:string):void{
   isWelcomeMode=false;saveWelcomeState(false);
   wasInChatMode=true;
@@ -64,7 +54,6 @@ function exitWelcomeMode(title?:string):void{
   if(leftHandEl)leftHandEl.classList.remove('hand-visible');
   if(rightHandEl){rightHandEl.classList.remove('hand-visible');rightHandEl.classList.remove('hand-wave');}
   if(headerAreaEl){
-    // Remove welcome-header — CSS transitions height 60px → 36px
     headerAreaEl.classList.remove('welcome-header','welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
     Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
   }
@@ -74,7 +63,8 @@ function exitWelcomeMode(title?:string):void{
 }
 export function initializeHeaderUI():void{
   console.log('😊 Header UI (V1 + Wave + Laser Shimmer + Arrow Icon)');
-  headerAreaEl=document.getElementById('headerArea');
+  // ✅ FIXED: headerArea ID doesn't exist in HTML. Use headerContainer's parent (.header-area div)
+  headerAreaEl=document.getElementById('headerContainer')?.parentElement as HTMLElement|null;
   const savedWelcome=loadWelcomeState();
   const p=document.getElementById('mainPanel');
   const cs=getCurrentSession();
@@ -92,7 +82,6 @@ export function initializeHeaderUI():void{
   document.addEventListener('asuum:session-opened',((e:Event)=>{const ce=e as CustomEvent;const t=ce?.detail?.title||'Chat';exitWelcomeMode(t);const p2=document.getElementById('mainPanel');if(p2)p2.classList.add('chat-active');})as EventListener);
   document.addEventListener('asuum:title-updated',((e:Event)=>{const ce=e as CustomEvent;if(ce?.detail?.title){eventCapturedTitle=ce.detail.title;if(!isWelcomeMode)renderTitle();}})as EventListener);
   renderTitle();
-  // Set initial header state
   if(isWelcomeMode){enterWelcomeMode();}else{exitWelcomeMode(cs?.title||'New Chat');}
 }
 function injectStructure():void{
@@ -141,10 +130,6 @@ function renderTitle():void{
 function openMenu(id:string,anchor:HTMLElement):void{closeMenu();tabMenuForId=id;tabMenuEl=document.createElement('div');tabMenuEl.className='tab-menu';tabMenuEl.innerHTML=`<button class="tab-menu-item" data-action="rename">${IC_RENAME}<span>Rename</span></button><button class="tab-menu-item danger" data-action="delete">${IC_TRASH}<span>Delete</span></button>`;document.body.appendChild(tabMenuEl);const r=anchor.getBoundingClientRect(),mw=tabMenuEl.offsetWidth,mh=tabMenuEl.offsetHeight;tabMenuEl.style.left=`${Math.max(8,Math.min(r.right-mw,window.innerWidth-mw-8))}px`;let top=r.bottom+6;if(top+mh>window.innerHeight-8)top=r.top-mh-6;tabMenuEl.style.top=`${top}px`;tabMenuEl.querySelector('[data-action="rename"]')?.addEventListener('click',():void=>{closeMenu();if(tabMenuForId)startEditingTab(tabMenuForId);});tabMenuEl.querySelector('[data-action="delete"]')?.addEventListener('click',():void=>{closeMenu();});}
 function closeMenu():void{if(tabMenuEl){tabMenuEl.remove();tabMenuEl=null;tabMenuForId=null;}}
 function wireGlobalClose():void{document.addEventListener('click',(e:Event):void=>{if(tabMenuEl&&!tabMenuEl.contains(e.target as Node))closeMenu();});}
-/**
- * WATCH PANEL — Safety net for edge cases
- * Primary transitions handled by events
- */
 function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isRendering)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();}else if(!wasInChatMode&&ca&&hasSession&&!isWelcomeMode){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';exitWelcomeMode(cs?.title||'New Chat');}else{renderTitle();}}).observe(p,{attributes:true,attributeFilter:['class']});}
 export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderTitle();}
 export function updateActiveTabTitle(t:string):void{const at=getActiveTab();if(at){updateTabTitle(at.id,t);eventCapturedTitle=t;if(!isWelcomeMode)renderTitle();}}
