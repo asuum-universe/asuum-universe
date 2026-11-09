@@ -33,6 +33,7 @@ let isSyncing=false;
 let isRendering=false;
 let eventCapturedTitle:string|null=null;
 let hasWaved=false;
+let lastKnownChatActive=false;
 const WELCOME_STATE_KEY='asuum_welcome_mode';
 function saveWelcomeState(v:boolean):void{try{if(v)localStorage.setItem(WELCOME_STATE_KEY,'1');else localStorage.removeItem(WELCOME_STATE_KEY);}catch(_){}}
 function loadWelcomeState():boolean{try{return localStorage.getItem(WELCOME_STATE_KEY)==='1';}catch(_){return true;}}
@@ -60,11 +61,6 @@ function stopHeaderShimmer():void{if(!titleWrapEl)return;titleWrapEl.classList.r
 function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avatarBtn||!faceGroupEl||!eyeEls)return;const r=avatarBtn.getBoundingClientRect(),ax=r.left+r.width/2,ay=r.top+r.height/2,dx=cx-ax,dy=cy-ay,d=Math.hypot(dx,dy);if(d>400){faceGroupEl.style.transform='translate(0,0)';eyeEls.forEach(e=>e.style.transform='translate(0,0)');return;}const a=Math.atan2(dy,dx),n=Math.min(d/400,1),fm=n*n*1.2,em=n*2.5;faceGroupEl.style.transform=`translate(${(Math.cos(a)*fm).toFixed(2)}px,${(Math.sin(a)*fm).toFixed(2)}px)`;eyeEls.forEach(e=>e.style.transform=`translate(${(Math.cos(a)*em).toFixed(2)}px,${(Math.sin(a)*em).toFixed(2)}px)`);};document.addEventListener('mousemove',(e:MouseEvent)=>{if(gazeRafId)cancelAnimationFrame(gazeRafId);gazeRafId=requestAnimationFrame(()=>upd(e.clientX,e.clientY));});}
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
 function instantRender():void{renderTitle();syncPanel();}
-/**
- * ✅ ENTER WELCOME MODE — Complete state reset
- * Clears ALL traces of previous chat session from header.
- * Ensures avatar is centered, no title visible, toggle works.
- */
 function enterWelcomeMode():void{
   isWelcomeMode=true;
   saveWelcomeState(true);
@@ -91,6 +87,7 @@ export function initializeHeaderUI():void{
   const cs=getCurrentSession();
   const hasActiveChat=(p?.classList.contains('chat-active')??false)&&!!cs?.id;
   isWelcomeMode=savedWelcome||!hasActiveChat;
+  lastKnownChatActive=!isWelcomeMode&&hasActiveChat;
   if(!isWelcomeMode&&cs?.title)eventCapturedTitle=cs.title;
   else eventCapturedTitle=null;
   setExplicitNewTabClicked(false);
@@ -102,13 +99,9 @@ export function initializeHeaderUI():void{
   document.addEventListener('asuum:ai-thinking-start',()=>startHeaderShimmer());
   document.addEventListener('asuum:ai-thinking-stop',()=>stopHeaderShimmer());
   onTabsChange(()=>{if(isWelcomeMode)return;instantRender();});
-  /**
-   * ✅ WELCOME MODE EVENT — Full cleanup on chat delete/session end
-   * Dispatched by chat-ui.ts when user deletes a chat or returns to welcome.
-   */
   document.addEventListener('asuum:welcome-mode',()=>{enterWelcomeMode();setExplicitNewTabClicked(false);clearInjectedColor();});
   document.addEventListener('asuum:message-sent',()=>{if(isWelcomeMode){exitWelcomeMode();const s=getCurrentSession();eventCapturedTitle=s?.title||'New Chat';instantRender();}});
-  document.addEventListener('asuum:session-opened',((e:Event)=>{const ce=e as CustomEvent;exitWelcomeMode();eventCapturedTitle=ce?.detail?.title||'Chat';const p2=document.getElementById('mainPanel');if(p2)p2.classList.add('chat-active');instantRender();})as EventListener);
+  document.addEventListener('asuum:session-opened',((e:Event)=>{const ce=e as CustomEvent;exitWelcomeMode();eventCapturedTitle=ce?.detail?.title||'Chat';const p2=document.getElementById('mainPanel');if(p2)p2.classList.add('chat-active');lastKnownChatActive=true;instantRender();})as EventListener);
   document.addEventListener('asuum:title-updated',((e:Event)=>{const ce=e as CustomEvent;if(ce?.detail?.title){eventCapturedTitle=ce.detail.title;if(!isWelcomeMode)instantRender();}})as EventListener);
   instantRender();
   if(isWelcomeMode)setTimeout(()=>triggerWave(),600);
@@ -242,7 +235,32 @@ function openMenu(id:string,anchor:HTMLElement):void{closeMenu();tabMenuForId=id
 function closeMenu():void{if(tabMenuEl){tabMenuEl.remove();tabMenuEl=null;tabMenuForId=null;}}
 function wireGlobalClose():void{document.addEventListener('click',(e:Event):void=>{if(tabMenuEl&&!tabMenuEl.contains(e.target as Node))closeMenu();});}
 function syncPanel():void{if(isSyncing)return;isSyncing=true;try{const p=document.getElementById('mainPanel');if(!p||!headerAreaEl)return;const ca=p.classList.contains('chat-active');if(isWelcomeMode||!ca){headerAreaEl.classList.add('welcome-header');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');}else{headerAreaEl.classList.remove('welcome-header');headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');if(ca)p.classList.remove('new-tab-mode');}headerAreaEl.classList.remove('header-hidden');Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});}finally{requestAnimationFrame(()=>{isSyncing=false;});}}
-function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isSyncing||isRendering)return;syncPanel();renderTitle();}).observe(p,{attributes:true,attributeFilter:['class']});}
+/**
+ * ✅ ROBUST WATCH PANEL — Detects chat-active removal via DOM polling.
+ * Does NOT rely on events. Reads DOM state directly every mutation.
+ * If chat-active disappears and we were in chat mode → force welcome mode.
+ * This catches ALL transitions: delete, session clear, manual nav, etc.
+ */
+function watchPanel():void{
+  const p=document.getElementById('mainPanel');
+  if(!p)return;
+  new MutationObserver(():void=>{
+    if(isSyncing||isRendering)return;
+    const ca=p.classList.contains('chat-active');
+    const cs=getCurrentSession();
+    const hasSession=!!cs&&!!cs.id;
+    if(lastKnownChatActive&&(!ca||!hasSession)){
+      lastKnownChatActive=false;
+      enterWelcomeMode();
+      return;
+    }
+    if(!lastKnownChatActive&&ca&&hasSession){
+      lastKnownChatActive=true;
+    }
+    syncPanel();
+    renderTitle();
+  }).observe(p,{attributes:true,attributeFilter:['class']});
+}
 export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderTitle();}
 export function updateActiveTabTitle(t:string):void{const at=getActiveTab();if(at){updateTabTitle(at.id,t);eventCapturedTitle=t;if(!isWelcomeMode)instantRender();}}
 export function getActiveTabSessionId():string|null{return getActiveSessionId();}
