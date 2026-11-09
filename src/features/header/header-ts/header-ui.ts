@@ -16,7 +16,7 @@ let isWelcomeMode=true,headerToastEl:HTMLElement|null=null,headerToastTimer:Retu
 let gazeRafId:number|null=null,faceGroupEl:HTMLElement|null=null,eyeEls:NodeListOf<HTMLElement>|null=null;
 let mouthEl:HTMLElement|null=null,blinkTimer:ReturnType<typeof setTimeout>|null=null;
 let isSyncing=false,isRendering=false,eventCapturedTitle:string|null=null,hasWaved=false;
-let wasInChatMode=false,observerPaused=false;
+let wasInChatMode=false;
 const WELCOME_STATE_KEY='asuum_welcome_mode';
 function saveWelcomeState(v:boolean):void{try{if(v)localStorage.setItem(WELCOME_STATE_KEY,'1');else localStorage.removeItem(WELCOME_STATE_KEY);}catch(_){}}
 function loadWelcomeState():boolean{try{return localStorage.getItem(WELCOME_STATE_KEY)==='1';}catch(_){return true;}}
@@ -33,31 +33,30 @@ function wireGazeTracking():void{const upd=(cx:number,cy:number):void=>{if(!avat
 function wireBlink():void{const db=():void=>{if(!avatarBtn){blinkTimer=setTimeout(db,2500);return;}const c=avatarBtn.querySelector('.pure-circle')as HTMLElement|null;if(!c){blinkTimer=setTimeout(db,2000);return;}c.classList.add('blinking');setTimeout(()=>c?.classList.remove('blinking'),150);blinkTimer=setTimeout(db,2500+Math.random()*3500);};blinkTimer=setTimeout(db,2500);}
 function instantRender():void{renderTitle();syncPanel();}
 /**
- * ENTER WELCOME MODE
- * Pause observer briefly → set classes → resume after DOM settles
+ * ENTER WELCOME MODE — Force reflow ensures CSS transition triggers
+ * 1. Remove all conflicting classes
+ * 2. Force browser reflow (registers removal)
+ * 3. Add welcome-header (CSS animates 36px → 60px)
  */
 function enterWelcomeMode():void{
   isWelcomeMode=true;saveWelcomeState(true);
   eventCapturedTitle=null;editingTabId=null;editOrigTitle='';
   closeMenu();resetWave();
-  observerPaused=true;
   if(headerAreaEl){
+    headerAreaEl.classList.remove('welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
+    void headerAreaEl.offsetHeight;
     headerAreaEl.classList.add('welcome-header');
-    headerAreaEl.classList.remove('welcome-collapsed');
-    headerAreaEl.classList.remove('header-closed');
-    headerAreaEl.classList.remove('awning-open');
-    headerAreaEl.classList.remove('has-tabs');
-    headerAreaEl.classList.remove('header-hidden');
     Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
   }
   const p=document.getElementById('mainPanel');
   if(p)p.classList.remove('has-tabs');
   renderTitle();
-  setTimeout(()=>{observerPaused=false;triggerWave();},50);
+  setTimeout(()=>triggerWave(),400);
 }
 /**
- * EXIT WELCOME MODE
- * Set wasInChatMode FIRST → pause observer → remove welcome classes → resume
+ * EXIT WELCOME MODE — Force reflow ensures CSS transition triggers
+ * 1. Set wasInChatMode first (prevents observer re-trigger)
+ * 2. Remove welcome-header (CSS animates 60px → 36px)
  */
 function exitWelcomeMode(title?:string):void{
   isWelcomeMode=false;saveWelcomeState(false);
@@ -66,19 +65,13 @@ function exitWelcomeMode(title?:string):void{
   resetWave();
   if(leftHandEl)leftHandEl.classList.remove('hand-visible');
   if(rightHandEl){rightHandEl.classList.remove('hand-visible');rightHandEl.classList.remove('hand-wave');}
-  observerPaused=true;
   if(headerAreaEl){
-    headerAreaEl.classList.remove('welcome-header');
-    headerAreaEl.classList.remove('welcome-collapsed');
-    headerAreaEl.classList.remove('header-closed');
-    headerAreaEl.classList.remove('awning-open');
-    headerAreaEl.classList.remove('has-tabs');
-    headerAreaEl.classList.remove('header-hidden');
+    headerAreaEl.classList.remove('welcome-header','welcome-collapsed','header-closed','awning-open','has-tabs','header-hidden');
     Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});
   }
   const p=document.getElementById('mainPanel');
   if(p){p.classList.remove('has-tabs');p.classList.remove('new-tab-mode');}
-  requestAnimationFrame(()=>{renderTitle();setTimeout(()=>{observerPaused=false;},50);});
+  requestAnimationFrame(()=>renderTitle());
 }
 export function initializeHeaderUI():void{
   console.log('😊 Header UI (V1 + Wave + Laser Shimmer + Arrow Icon)');
@@ -147,8 +140,8 @@ function renderTitle():void{
 function openMenu(id:string,anchor:HTMLElement):void{closeMenu();tabMenuForId=id;tabMenuEl=document.createElement('div');tabMenuEl.className='tab-menu';tabMenuEl.innerHTML=`<button class="tab-menu-item" data-action="rename">${IC_RENAME}<span>Rename</span></button><button class="tab-menu-item danger" data-action="delete">${IC_TRASH}<span>Delete</span></button>`;document.body.appendChild(tabMenuEl);const r=anchor.getBoundingClientRect(),mw=tabMenuEl.offsetWidth,mh=tabMenuEl.offsetHeight;tabMenuEl.style.left=`${Math.max(8,Math.min(r.right-mw,window.innerWidth-mw-8))}px`;let top=r.bottom+6;if(top+mh>window.innerHeight-8)top=r.top-mh-6;tabMenuEl.style.top=`${top}px`;tabMenuEl.querySelector('[data-action="rename"]')?.addEventListener('click',():void=>{closeMenu();if(tabMenuForId)startEditingTab(tabMenuForId);});tabMenuEl.querySelector('[data-action="delete"]')?.addEventListener('click',():void=>{closeMenu();});}
 function closeMenu():void{if(tabMenuEl){tabMenuEl.remove();tabMenuEl=null;tabMenuForId=null;}}
 function wireGlobalClose():void{document.addEventListener('click',(e:Event):void=>{if(tabMenuEl&&!tabMenuEl.contains(e.target as Node))closeMenu();});}
-function syncPanel():void{if(isSyncing||observerPaused)return;isSyncing=true;try{const p=document.getElementById('mainPanel');if(!p||!headerAreaEl)return;const ca=p.classList.contains('chat-active');if(isWelcomeMode&&!ca){if(!headerAreaEl.classList.contains('welcome-header'))headerAreaEl.classList.add('welcome-header');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');}else if(!isWelcomeMode&&ca){if(headerAreaEl.classList.contains('welcome-header'))headerAreaEl.classList.remove('welcome-header');headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');p.classList.remove('new-tab-mode');}headerAreaEl.classList.remove('header-hidden');Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});}finally{requestAnimationFrame(()=>{isSyncing=false;});}}
-function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isSyncing||isRendering||observerPaused)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();return;}if(!wasInChatMode&&ca&&hasSession){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';exitWelcomeMode(cs?.title||'New Chat');return;}syncPanel();renderTitle();}).observe(p,{attributes:true,attributeFilter:['class']});}
+function syncPanel():void{if(isSyncing)return;isSyncing=true;try{const p=document.getElementById('mainPanel');if(!p||!headerAreaEl)return;const ca=p.classList.contains('chat-active');if(isWelcomeMode&&!ca){if(!headerAreaEl.classList.contains('welcome-header'))headerAreaEl.classList.add('welcome-header');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');}else if(!isWelcomeMode&&ca){if(headerAreaEl.classList.contains('welcome-header'))headerAreaEl.classList.remove('welcome-header');headerAreaEl.classList.remove('welcome-collapsed');headerAreaEl.classList.remove('has-tabs');p.classList.remove('has-tabs');p.classList.remove('new-tab-mode');}headerAreaEl.classList.remove('header-hidden');Object.assign(headerAreaEl.style,{display:'',opacity:'1',pointerEvents:''});}finally{requestAnimationFrame(()=>{isSyncing=false;});}}
+function watchPanel():void{const p=document.getElementById('mainPanel');if(!p)return;new MutationObserver(():void=>{if(isSyncing||isRendering)return;const ca=p.classList.contains('chat-active');const cs=getCurrentSession();const hasSession=!!cs&&!!cs.id;if(wasInChatMode&&(!ca||!hasSession)){wasInChatMode=false;enterWelcomeMode();return;}if(!wasInChatMode&&ca&&hasSession){wasInChatMode=true;if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';exitWelcomeMode(cs?.title||'New Chat');return;}syncPanel();renderTitle();}).observe(p,{attributes:true,attributeFilter:['class']});}
 export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderTitle();}
 export function updateActiveTabTitle(t:string):void{const at=getActiveTab();if(at){updateTabTitle(at.id,t);eventCapturedTitle=t;if(!isWelcomeMode)instantRender();}}
 export function getActiveTabSessionId():string|null{return getActiveSessionId();}
