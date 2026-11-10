@@ -1,6 +1,5 @@
 /* sidebar-main.css — UNIFIED TRANSITIONS + PROFILE BOX + FIXED ICONS + MOBILE RESPONSIVE */
 
-/* ✅ SIDEBAR BASE */
 .sidebar{width:44px;background:var(--sidebar-bg,#0a0a0a);border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;flex-shrink:0;height:100%;position:relative;z-index:10;overflow:hidden;transition:width 0.4s cubic-bezier(0.16,1,0.3,1),background var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1))}
 .sidebar.expanded{width:220px}
 .sidebar.hub-active.expanded{width:300px}
@@ -25,12 +24,10 @@
 
 .sb-middle{flex:1;min-height:0;display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden;position:relative;z-index:2}
 
-/* ✅ ACTION BUTTONS — CONSISTENT HOVER EFFECT */
 .sb-action-btn{display:flex;align-items:center;width:100%;height:36px;padding:0;gap:0;border:none;border-radius:8px;background:transparent;color:var(--sidebar-text-muted,#a1a1aa);cursor:pointer;flex-shrink:0;transition:background 0.2s cubic-bezier(0.4,0,0.2,1),color var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1));position:relative;overflow:hidden}
 .sb-action-btn svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);flex-shrink:0;width:17px;height:17px;display:block;transition:filter 0.2s ease,color var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1));filter:var(--sidebar-icon-filter,none);color:var(--sidebar-text,#fafafa)}
 .sb-action-btn:hover{background:var(--sidebar-hover,rgba(255,255,255,0.06))}
 .sb-action-btn:active{transform:scale(0.98)}
-/* ✅ Unified left-bar indicator — matches chat-menu-btn style */
 .sb-action-btn::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:60%;background:linear-gradient(180deg,#3b82f6,#6366f1);border-radius:0 2px 2px 0;transition:width 0.25s cubic-bezier(0.4,0,0.2,1)}
 .sb-action-btn:hover::before{width:3px}
 .sb-btn-text{font-family:'Inter',sans-serif;font-size:0.8rem;font-weight:500;letter-spacing:0.01em;white-space:nowrap;overflow:hidden;color:var(--sidebar-text,#fafafa);opacity:0;margin-left:40px;max-width:0;transform:translateX(-8px);transition:opacity 0.25s ease,max-width 0.35s cubic-bezier(0.16,1,0.3,1),transform 0.3s cubic-bezier(0.16,1,0.3,1),color var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1))}
@@ -70,7 +67,6 @@
 .chat-list-area::-webkit-scrollbar-thumb{background:var(--sidebar-border,#27272a);border-radius:999px}
 .chat-list-area::-webkit-scrollbar-thumb:hover{background:var(--sidebar-text-muted,#3f3f46)}
 
-/* BOTTOM SECTION */
 .sb-bottom{display:flex;flex-direction:column;padding:8px 6px 10px 6px;border-top:1px solid transparent;flex-shrink:0;position:relative;z-index:2;margin-top:auto;transition:padding 0.4s cubic-bezier(0.16,1,0.3,1),border-color var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1))}
 .sidebar.expanded .sb-bottom{padding:8px 10px 10px 10px;border-top:1px solid var(--sidebar-border,#1a1a1a)}
 
@@ -100,7 +96,6 @@
 body.sidebar-light .sb-theme-icon-sun{opacity:0;transform:rotate(90deg) scale(0.5)}
 body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)}
 
-/* Chat items */
 .chat-item{position:relative;display:flex;align-items:center;gap:8px;width:100%;padding:6px 10px;border-radius:7px;background:transparent;color:var(--sidebar-text-muted,#d4d4d8);cursor:pointer;text-align:left;transition:all 0.2s cubic-bezier(0.4,0,0.2,1),color var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1));border:1px solid transparent;user-select:none;-webkit-user-select:none}
 .chat-item::before{content:'';position:absolute;left:0;top:25%;bottom:25%;width:0;background:var(--sidebar-text,#fafafa);border-radius:0 2px 2px 0;transition:width 0.2s cubic-bezier(0.4,0,0.2,1);opacity:0}
 .chat-item:hover{background:var(--sidebar-hover,rgba(255,255,255,0.05));color:var(--sidebar-text,#fafafa);border-color:var(--sidebar-border,rgba(255,255,255,0.06));transform:translateY(-1px)}
@@ -144,11 +139,9 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)
 .bdm-confirm{background:#dc2626;color:#fff;box-shadow:0 2px 6px rgba(220,38,38,0.25)}
 .bdm-confirm:hover{background:#b91c1c;transform:translateY(-1px)}
 
-/* ✅ CHAT MENU — CONSISTENT WITH SB-ACTION-BTN HOVER */
 .chat-menu{position:fixed;z-index:1000;min-width:150px;padding:4px;background:rgba(20,20,20,0.98);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border:1px solid rgba(39,39,42,0.9);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,0.5),0 4px 8px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.05) inset;display:flex;flex-direction:column;gap:2px;animation:menuIn 0.2s cubic-bezier(0.22,1,0.36,1)}
 @keyframes menuIn{from{opacity:0;transform:translateY(-6px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .chat-menu-btn{display:flex;align-items:center;gap:9px;padding:8px 11px;border:none;background:transparent;border-radius:7px;font-family:'Inter',sans-serif;font-size:0.76rem;font-weight:500;color:#d4d4d8;cursor:pointer;text-align:left;transition:all 0.18s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:hidden}
-/* ✅ SAME gradient as sb-action-btn::before */
 .chat-menu-btn::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:60%;background:linear-gradient(180deg,#3b82f6,#6366f1);border-radius:0 2px 2px 0;transition:width 0.2s ease}
 .chat-menu-btn:hover::before{width:3px}
 .chat-menu-btn:hover{background:rgba(255,255,255,0.06);color:#fafafa;padding-left:14px}
@@ -169,10 +162,8 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)
 .rename-cancel:hover{background:#333;color:#fafafa;transform:scale(1.06)}
 
 /* ============================================
-   ✅ MOBILE RESPONSIVE — SLIDE DRAWER + OVERLAY
+   ✅ MOBILE OVERLAY BACKDROP
    ============================================ */
-
-/* Mobile overlay backdrop */
 .sidebar-mobile-overlay{
   position:fixed;inset:0;z-index:9;
   background:rgba(0,0,0,0.5);
@@ -182,18 +173,21 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)
 }
 .sidebar-mobile-overlay.visible{opacity:1;visibility:visible;pointer-events:auto}
 
+/* ============================================
+   ✅ MOBILE RESPONSIVE — SLIDE DRAWER FROM ANYWHERE
+   ============================================ */
 @media(max-width:768px){
-  /* ✅ Sidebar hidden by default on mobile, slides in as drawer */
   .sidebar{
     position:fixed;left:0;top:0;bottom:0;
-    width:260px!important;
+    width:280px!important;
     transform:translateX(-100%);
     transition:transform 0.35s cubic-bezier(0.16,1,0.3,1),background var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1));
     z-index:100;
     border-radius:0;
+    box-shadow:4px 0 24px rgba(0,0,0,0.3);
   }
   .sidebar.expanded{
-    width:260px!important;
+    width:280px!important;
     transform:translateX(0);
   }
   .sidebar.hub-fullscreen{
@@ -201,45 +195,45 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)
     width:100%!important;
   }
 
-  /* Always show content on mobile (no collapsed icon-only state) */
-  .sidebar .sidebar-content{opacity:1;pointer-events:auto;transition:none}
-  .sidebar .sb-top{grid-template-columns:1fr 44px;padding:0 0 0 12px}
-  .sidebar .sb-brand{opacity:1}
-  .sidebar .sb-btn-text{opacity:1;max-width:160px;transform:translateX(0)}
-  .sidebar .sb-divider{width:calc(100% - 20px);margin:4px 0}
-  .sidebar .sb-divider.sb-divider-spaced{width:calc(100% - 20px);margin:8px 0}
-  .sidebar .sb-profile-info{opacity:1;max-width:110px;transform:translateX(0)}
-  .sidebar .sb-theme-toggle{opacity:1;pointer-events:auto}
-  .sidebar .sb-bottom{padding:8px 10px 10px 10px;border-top:1px solid var(--sidebar-border,#1a1a1a)}
-  .sidebar .sb-profile-box{width:100%;height:40px}
-  .sidebar .sb-avatar{left:3px;transform:translateY(-50%)}
+  /* Always show full content on mobile */
+  .sidebar .sidebar-content{opacity:1!important;pointer-events:auto!important;transition:none!important}
+  .sidebar .sb-top{grid-template-columns:1fr 44px!important;padding:0 0 0 12px!important}
+  .sidebar .sb-brand{opacity:1!important}
+  .sidebar .sb-btn-text{opacity:1!important;max-width:180px!important;transform:translateX(0)!important}
+  .sidebar .sb-divider{width:calc(100% - 20px)!important;margin:4px 0!important}
+  .sidebar .sb-divider.sb-divider-spaced{width:calc(100% - 20px)!important;margin:8px 0!important}
+  .sidebar .sb-profile-info{opacity:1!important;max-width:140px!important;transform:translateX(0)!important}
+  .sidebar .sb-theme-toggle{opacity:1!important;pointer-events:auto!important}
+  .sidebar .sb-bottom{padding:10px 12px 14px 12px!important;border-top:1px solid var(--sidebar-border,#1a1a1a)!important}
+  .sidebar .sb-profile-box{width:100%!important;height:44px!important;border-radius:10px!important;background:var(--sidebar-hover,rgba(255,255,255,0.03))!important;border:1px solid var(--sidebar-border,rgba(255,255,255,0.04))!important}
+  .sidebar .sb-avatar{left:6px!important;transform:translateY(-50%)!important;width:28px!important;height:28px!important}
+  .sidebar .sb-name{font-size:0.8rem!important}
+  .sidebar .sb-status{font-size:0.65rem!important}
 
-  /* Chat item always shows menu button on mobile */
-  .chat-item-menu{opacity:1}
-  .chat-item{padding:8px 10px;gap:8px}
+  /* Action buttons touch-friendly */
+  .sb-action-btn{height:42px!important;border-radius:8px!important}
+  .sb-action-btn svg{width:18px!important;height:18px!important;left:12px!important}
+  .sb-btn-text{margin-left:42px!important;font-size:0.85rem!important}
 
-  .main-panel{border-radius:0}
+  /* Chat items touch-friendly */
+  .chat-item{padding:10px 12px!important;gap:10px!important;min-height:44px}
+  .chat-item-menu{opacity:1!important;width:28px!important;height:28px!important}
+  .chat-item-title{font-size:0.82rem!important}
 
-  .sb-action-btn{height:38px}
-  .sb-action-btn svg{width:17px;height:17px;left:12px}
+  /* Section labels */
+  .chat-group-label{padding:8px 12px 6px 12px!important;font-size:0.6rem!important}
 
-  .bulk-delete-modal{padding:20px 16px 14px}
-  .bdm-title{font-size:0.88rem}
-  .bdm-desc{font-size:0.74rem}
+  /* Bulk bar touch-friendly */
+  .bulk-bar-sticky{padding:10px 12px 8px 12px!important}
+  .bb-cancel,.bb-delete{padding:6px 12px!important;font-size:0.78rem!important}
+
+  .main-panel{border-radius:0!important}
+
+  .bulk-delete-modal{padding:24px 20px 18px!important}
+  .bdm-title{font-size:0.92rem!important}
+  .bdm-desc{font-size:0.78rem!important}
 }
 
 @media(prefers-reduced-motion:reduce){
   .sidebar,.sb-action-btn,.chat-item,.chat-menu,.bulk-delete-overlay,.bulk-delete-modal,.select-circle,.bulk-dropdown,.sb-btn-text,.sb-profile-info,.sb-avatar,.sidebar-mobile-overlay{animation:none!important;transition-duration:0.01ms!important}
-}
-
-/* Laser shimmer */
-.header-title-area.laser-shimmer-active .single-title-text{
-  color:#ffffff;
-  background:linear-gradient(90deg,#ffffff 0%,#ffffff 46%,#a1a1aa 48%,#71717a 50%,#a1a1aa 52%,#ffffff 54%,#ffffff 100%);
-  background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
-  animation:laserSweepHeader 1.8s linear infinite;
-}
-@keyframes laserSweepHeader{0%{background-position:150% center}100%{background-position:-50% center}}
-.header-title-area:not(.laser-shimmer-active) .single-title-text{
-  -webkit-text-fill-color:#ffffff;color:#ffffff;background:none;animation:none;
 }

@@ -44,9 +44,6 @@ function toggleSidebarTheme(): void {
 
 function isMobile(): boolean { return window.innerWidth <= 768; }
 
-/**
- * ✅ MOBILE OVERLAY — Creates backdrop for slide drawer
- */
 function ensureMobileOverlay(): void {
   if (mobileOverlayEl) return;
   mobileOverlayEl = document.createElement('div');
@@ -71,35 +68,37 @@ function closeMobileSidebar(): void {
 }
 
 /**
- * ✅ TOUCH SWIPE DETECTION — Slide right from left edge to open sidebar
+ * ✅ TOUCH SWIPE — Right swipe from ANYWHERE on screen opens sidebar
+ * Skips interactive elements (input, bubbles, scrollbar) to avoid conflicts
  */
 function setupTouchSwipe(): void {
   let touchStartX = 0;
   let touchStartY = 0;
   let isSwiping = false;
-  const EDGE_THRESHOLD = 30;
-  const SWIPE_MIN = 60;
+  const SWIPE_MIN = 50;
+  const VERTICAL_MAX = 80;
 
   document.addEventListener('touchstart', (e: TouchEvent) => {
+    const tgt = e.target as HTMLElement;
+    if (tgt.closest('.chat-input') || tgt.closest('.message-bubble') || tgt.closest('.chat-scrollbar') || tgt.closest('.chat-scrollbar-hover-zone')) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
-    // Only detect swipe from left edge
-    isSwiping = touchStartX < EDGE_THRESHOLD;
+    isSwiping = true;
   }, { passive: true });
 
   document.addEventListener('touchmove', (e: TouchEvent) => {
     if (!isSwiping) return;
     const dx = e.touches[0].clientX - touchStartX;
     const dy = Math.abs(e.touches[0].clientY - touchStartY);
-    // If vertical scroll dominates, cancel swipe
-    if (dy > dx) { isSwiping = false; return; }
+    if (dy > VERTICAL_MAX && dy > dx) { isSwiping = false; }
   }, { passive: true });
 
   document.addEventListener('touchend', (e: TouchEvent) => {
     if (!isSwiping) return;
     isSwiping = false;
     const dx = e.changedTouches[0].clientX - touchStartX;
-    if (dx > SWIPE_MIN && isMobile()) {
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
+    if (dx > SWIPE_MIN && dx > dy && isMobile()) {
       const sidebar = document.getElementById('sidebar');
       if (sidebar && !sidebar.classList.contains('expanded')) {
         sidebar.classList.add('expanded');
@@ -126,7 +125,6 @@ export function initializeSidebarUI(): void {
   const newChatBtn = document.querySelector('.new-chat-btn');
   if (newChatBtn) newChatBtn.addEventListener('click', () => handleNewChatFromSidebar());
 
-  // ✅ Close sidebar on mobile when chat is loaded
   document.addEventListener('asuum:session-opened', () => {
     if (isMobile()) closeMobileSidebar();
   });
@@ -324,7 +322,6 @@ function wireEvents(): void {
       if (id) {
         setActiveWorkspaceFilter(null);
         loadSession(id);
-        // ✅ Auto-close sidebar on mobile when chat is opened
         if (isMobile()) closeMobileSidebar();
       }
     });
@@ -353,7 +350,6 @@ function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: stri
     deleteSession(sessionId);
     renderAll();
     closeMenu();
-    // ✅ Dispatch welcome-mode if deleted session was active
     if (!getCurrentSession()) document.dispatchEvent(new Event('asuum:welcome-mode'));
   });
 }
@@ -379,5 +375,4 @@ function positionMenu(anchor: HTMLElement): void {
 }
 
 function closeMenu(): void { if (menuEl) { menuEl.remove(); menuEl = null; } }
-
 function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
