@@ -50,10 +50,7 @@ function ensureMobileOverlay(): void {
   if (mobileOverlayEl) return;
   mobileOverlayEl = document.createElement('div');
   mobileOverlayEl.className = 'sidebar-mobile-overlay';
-  mobileOverlayEl.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeMobileSidebar();
-  });
+  mobileOverlayEl.addEventListener('click', () => closeMobileSidebar());
   document.body.appendChild(mobileOverlayEl);
 }
 
@@ -63,13 +60,11 @@ function showMobileOverlay(): void {
 }
 
 function hideMobileOverlay(): void {
-  if (mobileOverlayEl) {
-    mobileOverlayEl.classList.remove('visible');
-  }
+  mobileOverlayEl?.classList.remove('visible');
 }
 
 /**
- * ✅ CLOSE MOBILE SIDEBAR — Closes sidebar + all open menus/popups
+ * ✅ CLOSE MOBILE SIDEBAR — Also closes ALL open menus/popups
  */
 function closeMobileSidebar(): void {
   const sidebar = document.getElementById('sidebar');
@@ -96,10 +91,7 @@ function setupTouchSwipe(): void {
   document.addEventListener('touchstart', (e: TouchEvent) => {
     if (!isMobile()) return;
     const tgt = e.target as HTMLElement;
-    // Skip interactive elements
     if (tgt.closest('.chat-input') || tgt.closest('.message-bubble') || tgt.closest('.chat-scrollbar') || tgt.closest('.chat-scrollbar-hover-zone')) return;
-    // ✅ Skip if touching inside sidebar itself (don't re-drag when already open)
-    if (tgt.closest('#sidebar')) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     isDragging = true;
@@ -188,26 +180,33 @@ export function initializeSidebarUI(): void {
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
   /**
-   * ✅ GLOBAL CLICK HANDLER — Properly scoped
-   * - Closes menus when clicked outside them
-   * - Only closes sidebar when clicked on overlay (NOT inside sidebar)
+   * ✅ GLOBAL CLICK HANDLER — Fixed:
+   * 1. Sidebar inside clicks do NOT close sidebar
+   * 2. Menus inside sidebar do NOT trigger sidebar close
+   * 3. Only overlay click or outside click closes sidebar
    */
   document.addEventListener('click', (e: Event) => {
     const target = e.target as Node;
+    const sidebar = document.getElementById('sidebar');
 
-    // Close menus if clicked outside them
+    // Close menus if clicked outside them (but NOT if clicking inside sidebar)
     if (bulkMenuEl && !bulkMenuEl.contains(target)) closeBulkMenu();
     if (menuEl && !menuEl.contains(target)) closeMenu();
 
-    // ✅ DON'T close sidebar on clicks inside sidebar
-    // Sidebar closing is ONLY handled by overlay click or explicit actions
+    // ✅ ONLY close mobile sidebar if click is OUTSIDE sidebar entirely
+    // Sidebar contains check prevents closing when clicking ANY element inside sidebar
+    if (isMobile() && sidebar && !sidebar.contains(target)) {
+      // Only close if overlay is visible (sidebar is open)
+      if (mobileOverlayEl?.classList.contains('visible')) {
+        closeMobileSidebar();
+      }
+    }
   });
 
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
-      if (menuEl) { closeMenu(); return; }
-      if (bulkMenuEl) { closeBulkMenu(); return; }
-      if (selectionMode) { exitSelectionMode(); return; }
+      if (selectionMode) exitSelectionMode();
+      else closeMenu();
       if (isMobile()) closeMobileSidebar();
     }
   });
