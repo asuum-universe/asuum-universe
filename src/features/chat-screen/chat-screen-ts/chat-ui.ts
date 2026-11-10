@@ -1,9 +1,10 @@
-/** chat-ui.ts — V1 + REGENERATE WITH DELETE-BELOW */
+/** chat-ui.ts — V1 + REGENERATE WITH DELETE-BELOW + THEME TOGGLE IN MENU */
 import { eventBus } from '../../../event-bus';
 import { routeChatRequest, ChatMessage } from '../../../core/ai-router';
 import { appendToCurrent, appendToSession, getCurrentSession, onSessionChange, updateMessageText, createSession, startNewChat, renameSession, deleteSession, removeLastAiMessage, deleteMessagesFromIndex, getMessagesUpTo, ChatSession } from '../services/chat-store';
 import { getActiveTab, assignSessionToTab, createTab, setTabTitleAuto, hasUserRenamed } from '../../header/services/header-tabs-store';
 import { LoadingManager } from '../../../core/loading';
+import { toggleMainTheme } from '../../welcome-screen/welcome-ts/welcome-ui';
 
 let _openRulesModal:(()=>void)|null=null,_refreshRulesDot:(()=>void)|null=null;
 function getOpenRulesModal():()=>void{if(!_openRulesModal){_openRulesModal=():void=>{const o=document.getElementById('crOverlay');if(o)o.classList.add('active')};}return _openRulesModal;}
@@ -19,6 +20,8 @@ const ICON_SHARE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const ICON_CODE_COPY=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
 const ICON_UP=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
 const ICON_DOWN=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+const ICON_MOON_MENU=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+const ICON_SUN_MENU=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 
 interface PendingEdit{row:HTMLElement;bubble:HTMLElement;idx:number}
 let pendingEdit:PendingEdit|null=null,isRegenerating=false,currentRenderedSessionId:string|null=null,userHasScrolledUp=false,newMessagesCount=0;
@@ -229,8 +232,27 @@ function wireScrollToBottomButton():void{const b=document.getElementById('scroll
 function updateScrollToBottomButton():void{const b=document.getElementById('scrollToBottomBtn');if(!b)return;b.classList.toggle('visible',userHasScrolledUp)}
 function smoothScrollToBottom():void{const l=document.getElementById('chatMessages');if(!l)return;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();requestAnimationFrame(()=>{const rows=l.querySelectorAll('.message-row,.chat-end-marker-wrapper');if(rows.length>0){const last=rows[rows.length-1]as HTMLElement;l.scrollTo({top:last.offsetTop+last.offsetHeight-l.clientHeight+3,behavior:'smooth'})}else l.scrollTo({top:l.scrollHeight,behavior:'smooth'})})}
 
-function wireMainMenu():void{const w=document.getElementById('mmWrap'),b=document.getElementById('mmBtn'),m=document.getElementById('mmMenu');if(!w||!b||!m)return;const close=()=>w.classList.remove('open');b.addEventListener('click',()=>{if(w.classList.contains('open'))close();else{refreshMenuState();w.classList.add('open')}});document.addEventListener('click',(e)=>{if(!w.contains(e.target as Node))close()});document.addEventListener('keydown',(e)=>{if(e.key==='Escape')close()});m.querySelectorAll('.mm-item').forEach((it)=>it.addEventListener('click',()=>{handleMenuAction((it as HTMLElement).dataset.action||'');close()}))}
-function refreshMenuState():void{const m=document.getElementById('mmMenu');if(!m)return;const p=document.getElementById('mainPanel'),ic=!!p&&p.classList.contains('chat-active');m.classList.toggle('welcome-mode',!ic);const s=getCurrentSession(),hc=ic&&!!s&&s.messages.length>0;m.querySelectorAll('.mm-item').forEach((it)=>{const a=(it as HTMLElement).dataset.action;it.classList.toggle('disabled',(a==='rename'||a==='export'||a==='delete')&&!hc)});getRefreshRulesDot()()}
+/**
+ * ✅ THEME TOGGLE HELPERS for three-line menu
+ */
+function getThemeToggleHTML():string{
+  const isDark=document.body.classList.contains('main-dark');
+  return isDark
+    ?`${ICON_SUN_MENU}<span>Light Mode</span>`
+    :`${ICON_MOON_MENU}<span>Dark Mode</span>`;
+}
+function updateThemeToggleIcon(btn:HTMLElement):void{btn.innerHTML=getThemeToggleHTML();}
+function injectThemeToggleInMenu(menu:HTMLElement):void{
+  if(menu.querySelector('.mm-theme-toggle'))return;
+  const divider=document.createElement('div');divider.className='mm-divider mm-theme-divider';
+  const btn=document.createElement('button');btn.className='mm-item mm-theme-toggle';
+  btn.innerHTML=getThemeToggleHTML();
+  btn.addEventListener('click',(e)=>{e.stopPropagation();toggleMainTheme();updateThemeToggleIcon(btn)});
+  menu.appendChild(divider);menu.appendChild(btn);
+}
+
+function wireMainMenu():void{const w=document.getElementById('mmWrap'),b=document.getElementById('mmBtn'),m=document.getElementById('mmMenu');if(!w||!b||!m)return;const close=()=>w.classList.remove('open');b.addEventListener('click',()=>{if(w.classList.contains('open'))close();else{refreshMenuState();w.classList.add('open')}});document.addEventListener('click',(e)=>{if(!w.contains(e.target as Node))close()});document.addEventListener('keydown',(e)=>{if(e.key==='Escape')close()});m.querySelectorAll('.mm-item:not(.mm-theme-toggle)').forEach((it)=>it.addEventListener('click',()=>{handleMenuAction((it as HTMLElement).dataset.action||'');close()}));injectThemeToggleInMenu(m)}
+function refreshMenuState():void{const m=document.getElementById('mmMenu');if(!m)return;const p=document.getElementById('mainPanel'),ic=!!p&&p.classList.contains('chat-active');m.classList.toggle('welcome-mode',!ic);const s=getCurrentSession(),hc=ic&&!!s&&s.messages.length>0;m.querySelectorAll('.mm-item:not(.mm-theme-toggle)').forEach((it)=>{const a=(it as HTMLElement).dataset.action;it.classList.toggle('disabled',(a==='rename'||a==='export'||a==='delete')&&!hc)});getRefreshRulesDot();const tb=m.querySelector('.mm-theme-toggle')as HTMLElement|null;if(tb)updateThemeToggleIcon(tb)}
 function handleMenuAction(action:string):void{const s=getCurrentSession();switch(action){case'new-chat':startNewChat();currentRenderedSessionId=null;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();const inp=document.querySelector('.chat-input')as HTMLTextAreaElement|null;if(inp){inp.value='';inp.dispatchEvent(new Event('input'));inp.focus()}break;case'rename':if(!s)return;const n=prompt('Rename:',s.title);if(n?.trim())renameSession(s.id,n.trim());break;case'export':if(!s||!s.messages.length)return;exportSession(s);break;case'rules':getOpenRulesModal()();break;case'model-hub':document.getElementById('modelHubBtn')?.click();break;case'delete':if(s&&confirm(`Delete "${s.title}"?`)){deleteSession(s.id);currentRenderedSessionId=null;document.dispatchEvent(new CustomEvent('asuum:welcome-mode'));}break}}
 function exportSession(s:ChatSession):void{const lines=['ASUUM EXPORT',`Title: ${s.title}`,`Date: ${new Date().toLocaleString()}`,'---',''];s.messages.forEach(m=>lines.push(`${m.sender==='user'?'You':'Asuum'}: ${m.text}`,''));const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${(s.title||'chat').replace(/[^\w\d-_ ]/g,'').slice(0,40)}.txt`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function showChatScreen():void{const p=document.getElementById('mainPanel');if(p&&!p.classList.contains('chat-active')){p.classList.add('chat-active');const s=getCurrentSession();document.dispatchEvent(new CustomEvent('asuum:chat-mode',{detail:{title:s?.title||'New Chat'}}));setTimeout(()=>smartAutoScroll(),50)}}

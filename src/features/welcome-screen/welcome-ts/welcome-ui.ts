@@ -17,33 +17,15 @@ function applyMainTheme(theme:'light'|'dark'):void{if(theme==='dark')document.bo
 function initMainTheme():void{const stored=getStoredMainTheme();const theme=stored||getSystemTheme();applyMainTheme(theme);window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',(e)=>{if(!getStoredMainTheme())applyMainTheme(e.matches?'dark':'light')})}
 
 /**
- * ✅ FORCED SINGLE-FRAME THEME TRANSITION
- * 
- * WHY CSS-ONLY APPROACHES FAILED:
- * CSS variables update instantly but browser paints each element
- * in separate compositing passes → visible stagger/cascade
- * 
- * HOW THIS FIX WORKS:
- * 1. Disable ALL transitions temporarily (instant state change)
- * 2. Apply new theme class
- * 3. Force browser to compute ALL new styles in ONE pass
- *    via getComputedStyle on every themed element
- * 4. Re-enable transitions AFTER single paint completes
- * 5. Result: everything changes in EXACT same frame
+ * ✅ EXPORTED for use in three-line menu toggle
+ * FORCED SINGLE-FRAME THEME TRANSITION
  */
-function toggleMainTheme():void{
+export function toggleMainTheme():void{
   const isDark=document.body.classList.contains('main-dark');
   const newTheme=isDark?'light':'dark';
-
-  // Step 1: Kill all transitions so nothing animates yet
   document.documentElement.style.setProperty('--theme-transition','0s');
-
-  // Step 2: Apply theme instantly
   applyMainTheme(newTheme);
   try{localStorage.setItem(MAIN_THEME_KEY,newTheme)}catch{}
-
-  // Step 3: Force browser to resolve ALL computed styles in ONE pass
-  // This makes browser recalculate every element's colors simultaneously
   requestAnimationFrame(()=>{
     const themedEls=document.querySelectorAll(
       '.chat-screen,.main-area,.sidebar,.input-container,.message-bubble,'+
@@ -59,10 +41,7 @@ function toggleMainTheme():void{
       '.message-bubble h1,.message-bubble h2,.message-bubble h3,'+
       '.message-bubble p,.message-bubble strong,.message-bubble em'
     );
-    // Force style recalculation on ALL elements at once
     themedEls.forEach(el=>{window.getComputedStyle(el).backgroundColor});
-
-    // Step 4: Now restore transitions — next paint will show everything updated together
     requestAnimationFrame(()=>{
       document.documentElement.style.removeProperty('--theme-transition');
     });

@@ -1,4 +1,4 @@
-/* chat-main.css — CHAT+INPUT SYNCED TRANSITIONS */
+/* chat-main.css — CHAT+INPUT SYNCED TRANSITIONS + MOBILE THEME TOGGLE */
 .chat-screen{display:none;width:100%;flex:1;min-height:0;flex-direction:column;overflow:hidden;position:relative;background:var(--theme-bg);transition:background-color var(--theme-transition)}
 .main-panel.chat-active .chat-screen{display:flex}
 .chat-messages{width:90%;max-width:760px;margin:0 auto;flex:1 1 auto;min-height:0;overflow-y:scroll;overflow-x:hidden;overscroll-behavior:contain;display:flex;flex-direction:column;gap:0;padding:4px 0 6px 0;scroll-behavior:auto;scrollbar-width:none;-ms-overflow-style:none}
@@ -133,7 +133,14 @@
 .mm-rules-dot{width:5px;height:5px;border-radius:50%;background:var(--theme-text-muted);margin-left:auto;display:none;transition:background-color var(--theme-transition)}
 .mm-rules-dot.active{display:block}
 .mm-divider{height:1px;background:var(--theme-border);margin:3px 6px;transition:background var(--theme-transition)}
-.mm-menu.welcome-mode .mm-item[data-action="rename"],.mm-menu.welcome-mode .mm-item[data-action="export"],.mm-menu.welcome-mode .mm-item[data-action="delete"],.mm-menu.welcome-mode .mm-divider{display:none}
+.mm-menu.welcome-mode .mm-item[data-action="rename"],.mm-menu.welcome-mode .mm-item[data-action="export"],.mm-menu.welcome-mode .mm-item[data-action="delete"],.mm-menu.welcome-mode .mm-divider:not(.mm-theme-divider){display:none}
+
+/* ✅ THEME TOGGLE IN THREE-LINE MENU */
+.mm-theme-divider{margin-top:2px!important}
+.mm-theme-toggle{margin-top:0!important}
+.mm-theme-toggle svg{transition:transform 0.3s cubic-bezier(0.22,1,0.36,1)}
+.mm-theme-toggle:hover svg{transform:rotate(15deg) scale(1.1)}
+
 .cr-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s ease}
 .cr-overlay.open{opacity:1;visibility:visible}
 .cr-overlay.open .cr-modal{transform:translateY(0) scale(1);opacity:1}
@@ -187,6 +194,7 @@
 .mh-body::-webkit-scrollbar{width:6px}
 .mh-body::-webkit-scrollbar-thumb{background:#d4d4d8;border-radius:3px}
 .mh-providers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+
 @media(max-width:768px){
 .chat-messages{width:95%;padding:3px 0 5px}
 .message-row.user{padding-left:8%}
@@ -196,17 +204,23 @@
 .timeline-system{bottom:72px}
 .timeline-system:hover .timeline-window{width:160px}
 .scroll-to-bottom-btn{bottom:56px;right:10px;width:26px;height:26px}
-.mm-wrap{top:5px;right:12px}
-.mm-btn{width:24px;height:24px;gap:2px}
-.mm-line{width:10px;height:2px}
-.mm-wrap.open .mm-line:nth-child(1){transform:translateY(4px) rotate(45deg)}
-.mm-wrap.open .mm-line:nth-child(3){transform:translateY(-4px) rotate(-45deg)}
+
+/* ✅ MOBILE THREE-LINE MENU — Perfect top-right positioning */
+.mm-wrap{top:6px!important;right:10px!important;z-index:300!important}
+.mm-btn{width:32px!important;height:32px!important;gap:3px!important;background:var(--theme-surface)!important;border:1px solid var(--theme-border)!important;border-radius:8px!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important}
+.mm-line{width:14px!important;height:2px!important;border-radius:2px!important}
+.mm-wrap.open .mm-line:nth-child(1){transform:translateY(5px) rotate(45deg)!important}
+.mm-wrap.open .mm-line:nth-child(3){transform:translateY(-5px) rotate(-45deg)!important}
+.mm-menu{min-width:180px!important;right:0!important;top:calc(100% + 8px)!important;border-radius:12px!important;padding:5px!important}
+.mm-item{padding:9px 12px!important;font-size:12.5px!important;border-radius:8px!important;gap:10px!important}
+.mm-item svg{width:15px!important;height:15px!important}
+.mm-theme-toggle{margin-top:2px!important}
+
 .cr-modal{border-radius:14px}.cr-header{padding:16px 18px}.cr-body{padding:14px 18px}.cr-footer{padding:12px 18px}
 .mh-modal{border-radius:14px}.mh-header{padding:14px 18px}.mh-categories{padding:8px 18px}.mh-body{padding:14px 18px 18px}
 .mh-providers-grid{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
-/* ✅ GLASSMORPHISM INPUT FIX — background-color ONLY transition (synced with chat-screen) */
 .main-panel.chat-active{background:transparent!important}
 .main-panel.chat-active .chat-screen{background:var(--theme-bg)!important}
 .main-panel.chat-active .chat-screen::after{display:none!important}
