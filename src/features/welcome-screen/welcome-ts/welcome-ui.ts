@@ -2,10 +2,8 @@
 import{PerformanceMonitor}from'../../../core/performance';
 
 const TEXTS={welcome:{line1:'Welcome to Asuum',line2:'Your personal AI assistant & workspace',final:'How can I help you today?'}};
-const ICON_MOON=`<svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-const ICON_SUN=`<svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
 const MAIN_THEME_KEY='asuum_main_theme';
-let seqId=0,lastMode='',jellyInjected=false,updating=false,themeBtnInjected=false;
+let seqId=0,lastMode='',jellyInjected=false,updating=false;
 
 export function setExplicitNewTabClicked(_v:boolean):void{}
 export function injectNewTabColor(_dot:string,_hover:string,_active:string):void{}
@@ -48,21 +46,11 @@ export function toggleMainTheme():void{
   });
 }
 
-function injectThemeToggle():void{
-  if(themeBtnInjected)return;
-  const existing=document.getElementById('themeToggleBtn');
-  if(existing){themeBtnInjected=true;return}
-  const btn=document.createElement('button');
-  btn.id='themeToggleBtn';btn.className='theme-toggle-btn';btn.title='Toggle Dark/Light Mode';btn.setAttribute('aria-label','Toggle theme');
-  btn.innerHTML=ICON_MOON+ICON_SUN;
-  btn.addEventListener('click',(e)=>{e.stopPropagation();toggleMainTheme()});
-  const mainArea=document.querySelector('.main-area');
-  if(mainArea){mainArea.appendChild(btn);themeBtnInjected=true}
-}
-
 export function initializeWelcomeUI():void{
   console.log('✨ Welcome UI (V1 + Forced Single-Frame Theme)');
-  initMainTheme();injectThemeToggle();injectJelly();injectHero();watchPanel();
+  initMainTheme();
+  // ✅ REMOVED injectThemeToggle() — theme toggle now ONLY inside three-line menu
+  injectJelly();injectHero();watchPanel();
   PerformanceMonitor.getQualityManager().onChange((q:string)=>console.log(`✨ Quality: ${q}`));
   PerformanceMonitor.getCleanupManager().onCleanup(()=>{});
   setTimeout(()=>refresh(),150);

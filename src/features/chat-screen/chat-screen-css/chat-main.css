@@ -1,4 +1,4 @@
-/* chat-main.css — CHAT+INPUT SYNCED TRANSITIONS + MOBILE THEME TOGGLE */
+/* chat-main.css — CHAT+INPUT SYNCED TRANSITIONS + MOBILE MENU FREE STYLE */
 .chat-screen{display:none;width:100%;flex:1;min-height:0;flex-direction:column;overflow:hidden;position:relative;background:var(--theme-bg);transition:background-color var(--theme-transition)}
 .main-panel.chat-active .chat-screen{display:flex}
 .chat-messages{width:90%;max-width:760px;margin:0 auto;flex:1 1 auto;min-height:0;overflow-y:scroll;overflow-x:hidden;overscroll-behavior:contain;display:flex;flex-direction:column;gap:0;padding:4px 0 6px 0;scroll-behavior:auto;scrollbar-width:none;-ms-overflow-style:none}
@@ -205,13 +205,14 @@
 .timeline-system:hover .timeline-window{width:160px}
 .scroll-to-bottom-btn{bottom:56px;right:10px;width:26px;height:26px}
 
-/* ✅ MOBILE THREE-LINE MENU — Perfect top-right positioning */
+/* ✅ MOBILE THREE-LINE MENU — FREE STYLE, NO BOX/BOUNDARIES */
 .mm-wrap{top:6px!important;right:10px!important;z-index:300!important}
-.mm-btn{width:32px!important;height:32px!important;gap:3px!important;background:var(--theme-surface)!important;border:1px solid var(--theme-border)!important;border-radius:8px!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important}
-.mm-line{width:14px!important;height:2px!important;border-radius:2px!important}
+.mm-btn{width:28px!important;height:28px!important;gap:3px!important;background:transparent!important;border:none!important;border-radius:50%!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.mm-btn:hover{background:var(--theme-surface-hover)!important}
+.mm-line{width:12px!important;height:2px!important;border-radius:0!important}
 .mm-wrap.open .mm-line:nth-child(1){transform:translateY(5px) rotate(45deg)!important}
 .mm-wrap.open .mm-line:nth-child(3){transform:translateY(-5px) rotate(-45deg)!important}
-.mm-menu{min-width:180px!important;right:0!important;top:calc(100% + 8px)!important;border-radius:12px!important;padding:5px!important}
+.mm-menu{min-width:170px!important;right:0!important;top:calc(100% + 8px)!important;border-radius:12px!important;padding:5px!important}
 .mm-item{padding:9px 12px!important;font-size:12.5px!important;border-radius:8px!important;gap:10px!important}
 .mm-item svg{width:15px!important;height:15px!important}
 .mm-theme-toggle{margin-top:2px!important}
