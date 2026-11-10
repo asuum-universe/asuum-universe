@@ -63,23 +63,23 @@ function hideMobileOverlay(): void {
   mobileOverlayEl?.classList.remove('visible');
 }
 
+/**
+ * ✅ CLOSE MOBILE SIDEBAR — Also closes all open menus/popups
+ */
 function closeMobileSidebar(): void {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
-  // Re-enable CSS transition for smooth close animation
   sidebar.style.transition = '';
   sidebar.classList.remove('expanded');
   sidebar.style.transform = '';
   hideMobileOverlay();
+  // Close any open chat menu or bulk menu when sidebar closes
+  closeMenu();
+  closeBulkMenu();
 }
 
 /**
  * ✅ DARAZ-STYLE TOUCH SWIPE — Real-time drag to open sidebar
- * - Finger moves → sidebar follows finger in real-time
- * - Finger lifts > 40% open → snaps fully open
- * - Finger lifts < 40% → snaps back closed
- * - Works from anywhere on screen
- * - Skips interactive elements
  */
 function setupTouchSwipe(): void {
   let touchStartX = 0;
@@ -97,7 +97,6 @@ function setupTouchSwipe(): void {
     isDragging = true;
     currentTranslateX = -SIDEBAR_WIDTH;
 
-    // Disable CSS transition during drag for instant response
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.style.transition = 'none';
   }, { passive: true });
@@ -107,7 +106,6 @@ function setupTouchSwipe(): void {
     const dx = e.touches[0].clientX - touchStartX;
     const dy = Math.abs(e.touches[0].clientY - touchStartY);
 
-    // Cancel if vertical scroll dominates
     if (dy > VERTICAL_MAX && dy > Math.abs(dx)) {
       isDragging = false;
       const sidebar = document.getElementById('sidebar');
@@ -115,10 +113,8 @@ function setupTouchSwipe(): void {
       return;
     }
 
-    // Only allow rightward drag (positive dx)
     if (dx <= 0) return;
 
-    // Calculate translate: starts at -280px, moves toward 0
     currentTranslateX = Math.max(-SIDEBAR_WIDTH, Math.min(0, -SIDEBAR_WIDTH + dx));
 
     const sidebar = document.getElementById('sidebar');
@@ -126,7 +122,6 @@ function setupTouchSwipe(): void {
       sidebar.style.transform = `translateX(${currentTranslateX}px)`;
     }
 
-    // Update overlay opacity proportionally
     const progress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
     ensureMobileOverlay();
     if (mobileOverlayEl) {
@@ -143,19 +138,15 @@ function setupTouchSwipe(): void {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
 
-    // Re-enable CSS transition for snap animation
     sidebar.style.transition = '';
 
-    // Calculate how far we dragged
     const openProgress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
 
     if (openProgress >= OPEN_THRESHOLD) {
-      // Snap open
       sidebar.classList.add('expanded');
       sidebar.style.transform = '';
       showMobileOverlay();
     } else {
-      // Snap closed
       sidebar.classList.remove('expanded');
       sidebar.style.transform = '';
       hideMobileOverlay();
@@ -187,10 +178,25 @@ export function initializeSidebarUI(): void {
   renderAll();
   onHistoryChange(() => { if (!selectionMode) renderAll(); });
   onTabsChange(() => { if (!selectionMode) renderAll(); });
+
+  /**
+   * ✅ GLOBAL CLICK — Only close sidebar if click is OUTSIDE sidebar
+   * Previously this closed sidebar on ANY click including inside sidebar
+   */
   document.addEventListener('click', (e: Event) => {
-    if (bulkMenuEl && !bulkMenuEl.contains(e.target as Node)) closeBulkMenu();
-    if (menuEl && !menuEl.contains(e.target as Node)) closeMenu();
+    const target = e.target as Node;
+    const sidebar = document.getElementById('sidebar');
+
+    // Close menus if clicked outside them
+    if (bulkMenuEl && !bulkMenuEl.contains(target)) closeBulkMenu();
+    if (menuEl && !menuEl.contains(target)) closeMenu();
+
+    // Only close mobile sidebar if click is OUTSIDE sidebar AND overlay is visible
+    if (isMobile() && sidebar && !sidebar.contains(target) && mobileOverlayEl?.classList.contains('visible')) {
+      closeMobileSidebar();
+    }
   });
+
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       if (selectionMode) exitSelectionMode();
