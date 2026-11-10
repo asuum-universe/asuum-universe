@@ -26,24 +26,17 @@ const ICON_TRASH_LG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="non
 function getStoredSidebarTheme(): 'dark' | 'light' | null {
   try { return localStorage.getItem(SIDEBAR_THEME_KEY) as 'dark' | 'light' | null; } catch { return null; }
 }
-
 function applySidebarTheme(theme: 'dark' | 'light'): void {
   if (theme === 'light') document.body.classList.add('sidebar-light');
   else document.body.classList.remove('sidebar-light');
 }
-
-function initSidebarTheme(): void {
-  const stored = getStoredSidebarTheme();
-  applySidebarTheme(stored || 'dark');
-}
-
+function initSidebarTheme(): void { applySidebarTheme(getStoredSidebarTheme() || 'dark'); }
 function toggleSidebarTheme(): void {
   const isLight = document.body.classList.contains('sidebar-light');
   const newTheme = isLight ? 'dark' : 'light';
   applySidebarTheme(newTheme);
   try { localStorage.setItem(SIDEBAR_THEME_KEY, newTheme); } catch {}
 }
-
 function isMobile(): boolean { return window.innerWidth <= 768; }
 
 function ensureMobileOverlay(): void {
@@ -57,9 +50,7 @@ function ensureMobileOverlay(): void {
 function showMobileOverlay(): void {
   ensureMobileOverlay();
   mobileOverlayEl!.style.display = 'block';
-  requestAnimationFrame(() => {
-    mobileOverlayEl?.classList.add('visible');
-  });
+  requestAnimationFrame(() => mobileOverlayEl?.classList.add('visible'));
 }
 
 function hideMobileOverlay(): void {
@@ -84,10 +75,7 @@ function closeMobileSidebar(): void {
 }
 
 function setupTouchSwipe(): void {
-  let touchStartX = 0;
-  let touchStartY = 0;
-  let isDragging = false;
-  let currentTranslateX = -SIDEBAR_WIDTH;
+  let touchStartX = 0, touchStartY = 0, isDragging = false, currentTranslateX = -SIDEBAR_WIDTH;
   const VERTICAL_MAX = 60;
 
   document.addEventListener('touchstart', (e: TouchEvent) => {
@@ -106,12 +94,7 @@ function setupTouchSwipe(): void {
     if (!isDragging || !isMobile()) return;
     const dx = e.touches[0].clientX - touchStartX;
     const dy = Math.abs(e.touches[0].clientY - touchStartY);
-    if (dy > VERTICAL_MAX && dy > Math.abs(dx)) {
-      isDragging = false;
-      const sidebar = document.getElementById('sidebar');
-      if (sidebar) sidebar.style.transition = '';
-      return;
-    }
+    if (dy > VERTICAL_MAX && dy > Math.abs(dx)) { isDragging = false; const s = document.getElementById('sidebar'); if (s) s.style.transition = ''; return; }
     if (dx <= 0) return;
     currentTranslateX = Math.max(-SIDEBAR_WIDTH, Math.min(0, -SIDEBAR_WIDTH + dx));
     const sidebar = document.getElementById('sidebar');
@@ -120,8 +103,8 @@ function setupTouchSwipe(): void {
     ensureMobileOverlay();
     if (mobileOverlayEl) {
       mobileOverlayEl.style.display = 'block';
-      mobileOverlayEl.style.opacity = String(progress * 0.5);
-      mobileOverlayEl.style.pointerEvents = progress > 0.01 ? 'auto' : 'none';
+      mobileOverlayEl.style.opacity = String(progress * 0.3);
+      mobileOverlayEl.style.pointerEvents = 'none';
     }
   }, { passive: true });
 
@@ -149,59 +132,44 @@ export function initializeSidebarUI(): void {
   initSidebarTheme();
   setupTouchSwipe();
 
+  // ✅ Kill static overlay from sidebar.html if it exists
+  const staticOverlay = document.getElementById('sidebarOverlay');
+  if (staticOverlay) staticOverlay.style.display = 'none';
+  const staticOverlay2 = document.querySelector('.sidebar-overlay');
+  if (staticOverlay2) (staticOverlay2 as HTMLElement).style.display = 'none';
+
   const sbThemeToggle = document.getElementById('sbThemeToggle');
-  if (sbThemeToggle) {
-    sbThemeToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebarTheme(); });
-  }
+  if (sbThemeToggle) sbThemeToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebarTheme(); });
 
   const newChatBtn = document.querySelector('.new-chat-btn');
   if (newChatBtn) newChatBtn.addEventListener('click', () => handleNewChatFromSidebar());
-
-  /**
-   * ✅ CRITICAL FIX: Stop ALL clicks inside sidebar from reaching document listener
-   * This prevents sidebar close when clicking ANY element inside sidebar
-   * (chats, empty space, three-dots, buttons, etc.)
-   */
-  const sidebar = document.getElementById('sidebar');
-  if (sidebar) {
-    sidebar.addEventListener('click', (e: Event) => {
-      e.stopPropagation();
-    });
-  }
-
-  document.addEventListener('asuum:session-opened', () => {
-    if (isMobile()) closeMobileSidebar();
-  });
 
   renderAll();
   onHistoryChange(() => { if (!selectionMode) renderAll(); });
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
   /**
-   * ✅ GLOBAL CLICK — Only fires for clicks OUTSIDE sidebar
-   * Sidebar clicks are blocked by stopPropagation above
-   * This ONLY handles: overlay clicks, chat-menu clicks, bulk-dropdown clicks
+   * ✅ GLOBAL CLICK — Capture phase
+   * ONLY closes menus. NEVER closes sidebar.
+   * Sidebar close is EXCLUSIVELY handled by overlay click.
    */
   document.addEventListener('click', (e: Event) => {
     const target = e.target as HTMLElement;
+    const sidebar = document.getElementById('sidebar');
 
-    // If click is inside chat-menu popup → don't close anything
+    // If click is inside sidebar → do NOTHING (let sidebar handle its own clicks)
+    if (sidebar && sidebar.contains(target)) return;
+
+    // If click is inside chat-menu popup → do nothing
     if (menuEl && menuEl.contains(target)) return;
-    // If click is inside bulk-dropdown → don't close anything
+
+    // If click is inside bulk-dropdown → do nothing
     if (bulkMenuEl && bulkMenuEl.contains(target)) return;
 
     // Close menus if clicked outside them
-    if (bulkMenuEl && !bulkMenuEl.contains(target)) closeBulkMenu();
     if (menuEl && !menuEl.contains(target)) closeMenu();
-
-    // Close mobile sidebar only if overlay is visible and click is on overlay
-    if (isMobile() && mobileOverlayEl?.classList.contains('visible')) {
-      // Check if click target is the overlay itself
-      if (target === mobileOverlayEl || target.classList.contains('sidebar-mobile-overlay')) {
-        closeMobileSidebar();
-      }
-    }
-  });
+    if (bulkMenuEl && !bulkMenuEl.contains(target)) closeBulkMenu();
+  }, true); // ✅ CAPTURE PHASE
 
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -230,8 +198,7 @@ function enterSelectionMode(): void { selectionMode = true; selectedIds.clear();
 function exitSelectionMode(): void { selectionMode = false; selectedIds.clear(); closeBulkMenu(); renderAll(); }
 
 function toggleSelect(id: string): void {
-  if (selectedIds.has(id)) selectedIds.delete(id);
-  else selectedIds.add(id);
+  if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
   updateSelectionUI();
 }
 
@@ -389,7 +356,7 @@ function wireEvents(): void {
       if (id) {
         setActiveWorkspaceFilter(null);
         loadSession(id);
-        if (isMobile()) closeMobileSidebar();
+        // ✅ NO closeMobileSidebar() — sidebar stays open after chat selection
       }
     });
     item.addEventListener('dblclick', e => { e.preventDefault(); if (id) { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); } });
