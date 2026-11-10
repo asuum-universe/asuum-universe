@@ -1,4 +1,4 @@
-/* sidebar-main.css — UNIFIED TRANSITIONS + PROFILE BOX + FIXED ICONS + MOBILE RESPONSIVE */
+/* sidebar-main.css — UNIFIED TRANSITIONS + PROFILE BOX + FIXED ICONS + DARAZ DRAWER */
 
 .sidebar{width:44px;background:var(--sidebar-bg,#0a0a0a);border:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;flex-shrink:0;height:100%;position:relative;z-index:10;overflow:hidden;transition:width 0.4s cubic-bezier(0.16,1,0.3,1),background var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1))}
 .sidebar.expanded{width:220px}
@@ -172,26 +172,28 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)
   background:rgba(0,0,0,0.5);
   backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
   opacity:0;visibility:hidden;pointer-events:none;
-  transition:opacity 0.3s ease,visibility 0.3s ease;
+  transition:opacity 0.15s ease,visibility 0.15s ease;
 }
 .sidebar-mobile-overlay.visible{opacity:1;visibility:visible;pointer-events:auto}
 
 /* ============================================
-   ✅ MOBILE RESPONSIVE — SLIDE DRAWER FROM ANYWHERE
+   ✅ MOBILE RESPONSIVE — DARAZ-STYLE DRAG DRAWER
    ============================================ */
 @media(max-width:768px){
+  /* ✅ Drawer hidden by default, JS controls transform during drag */
   .sidebar{
     position:fixed;left:0;top:0;bottom:0;
     width:280px!important;
-    transform:translateX(-100%);
-    transition:transform 0.35s cubic-bezier(0.16,1,0.3,1),background var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1));
+    transform:translateX(-280px);
+    transition:transform 0.3s cubic-bezier(0.16,1,0.3,1),background var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1));
     z-index:100;
     border-radius:0;
     box-shadow:4px 0 24px rgba(0,0,0,0.3);
+    will-change:transform;
   }
   .sidebar.expanded{
     width:280px!important;
-    transform:translateX(0);
+    transform:translateX(0)!important;
   }
   .sidebar.hub-fullscreen{
     transform:translateX(0)!important;

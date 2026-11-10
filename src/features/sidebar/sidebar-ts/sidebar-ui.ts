@@ -1,4 +1,4 @@
-/** sidebar-ui.ts — V1 CLEAN + STICKY BULK SELECT + SIDEBAR THEME TOGGLE + MOBILE SLIDE DRAWER */
+/** sidebar-ui.ts — V1 CLEAN + STICKY BULK SELECT + SIDEBAR THEME TOGGLE + DARAZ-STYLE DRAWER */
 import { getAllSessions, onHistoryChange, loadSession, startNewChat, getCurrentSession, renameSession, deleteSession, ChatSession } from '../../chat-screen/services/chat-store';
 import { getAllTabs, closeTab, getActiveTab, setActiveWorkspaceFilter, onTabsChange } from '../../header/services/header-tabs-store';
 import { setExplicitNewTabClicked, clearInjectedColor } from '../../welcome-screen/welcome-ts/welcome-ui';
@@ -11,6 +11,8 @@ let bulkMenuEl: HTMLElement | null = null;
 let mobileOverlayEl: HTMLElement | null = null;
 
 const SIDEBAR_THEME_KEY = 'asuum_sidebar_theme';
+const SIDEBAR_WIDTH = 280;
+const OPEN_THRESHOLD = 0.4;
 
 const ICON_DOTS = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>`;
 const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
@@ -63,53 +65,106 @@ function hideMobileOverlay(): void {
 
 function closeMobileSidebar(): void {
   const sidebar = document.getElementById('sidebar');
-  if (sidebar) sidebar.classList.remove('expanded');
+  if (!sidebar) return;
+  // Re-enable CSS transition for smooth close animation
+  sidebar.style.transition = '';
+  sidebar.classList.remove('expanded');
+  sidebar.style.transform = '';
   hideMobileOverlay();
 }
 
 /**
- * ✅ TOUCH SWIPE — Right swipe from ANYWHERE on screen opens sidebar
- * Skips interactive elements (input, bubbles, scrollbar) to avoid conflicts
+ * ✅ DARAZ-STYLE TOUCH SWIPE — Real-time drag to open sidebar
+ * - Finger moves → sidebar follows finger in real-time
+ * - Finger lifts > 40% open → snaps fully open
+ * - Finger lifts < 40% → snaps back closed
+ * - Works from anywhere on screen
+ * - Skips interactive elements
  */
 function setupTouchSwipe(): void {
   let touchStartX = 0;
   let touchStartY = 0;
-  let isSwiping = false;
-  const SWIPE_MIN = 50;
-  const VERTICAL_MAX = 80;
+  let isDragging = false;
+  let currentTranslateX = -SIDEBAR_WIDTH;
+  const VERTICAL_MAX = 60;
 
   document.addEventListener('touchstart', (e: TouchEvent) => {
+    if (!isMobile()) return;
     const tgt = e.target as HTMLElement;
     if (tgt.closest('.chat-input') || tgt.closest('.message-bubble') || tgt.closest('.chat-scrollbar') || tgt.closest('.chat-scrollbar-hover-zone')) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
-    isSwiping = true;
+    isDragging = true;
+    currentTranslateX = -SIDEBAR_WIDTH;
+
+    // Disable CSS transition during drag for instant response
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.style.transition = 'none';
   }, { passive: true });
 
   document.addEventListener('touchmove', (e: TouchEvent) => {
-    if (!isSwiping) return;
+    if (!isDragging || !isMobile()) return;
     const dx = e.touches[0].clientX - touchStartX;
     const dy = Math.abs(e.touches[0].clientY - touchStartY);
-    if (dy > VERTICAL_MAX && dy > dx) { isSwiping = false; }
+
+    // Cancel if vertical scroll dominates
+    if (dy > VERTICAL_MAX && dy > Math.abs(dx)) {
+      isDragging = false;
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) sidebar.style.transition = '';
+      return;
+    }
+
+    // Only allow rightward drag (positive dx)
+    if (dx <= 0) return;
+
+    // Calculate translate: starts at -280px, moves toward 0
+    currentTranslateX = Math.max(-SIDEBAR_WIDTH, Math.min(0, -SIDEBAR_WIDTH + dx));
+
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      sidebar.style.transform = `translateX(${currentTranslateX}px)`;
+    }
+
+    // Update overlay opacity proportionally
+    const progress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
+    ensureMobileOverlay();
+    if (mobileOverlayEl) {
+      mobileOverlayEl.style.opacity = String(progress * 0.5);
+      mobileOverlayEl.style.visibility = progress > 0.01 ? 'visible' : 'hidden';
+      mobileOverlayEl.style.pointerEvents = progress > 0.01 ? 'auto' : 'none';
+    }
   }, { passive: true });
 
-  document.addEventListener('touchend', (e: TouchEvent) => {
-    if (!isSwiping) return;
-    isSwiping = false;
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY);
-    if (dx > SWIPE_MIN && dx > dy && isMobile()) {
-      const sidebar = document.getElementById('sidebar');
-      if (sidebar && !sidebar.classList.contains('expanded')) {
-        sidebar.classList.add('expanded');
-        showMobileOverlay();
-      }
+  document.addEventListener('touchend', () => {
+    if (!isDragging || !isMobile()) return;
+    isDragging = false;
+
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+
+    // Re-enable CSS transition for snap animation
+    sidebar.style.transition = '';
+
+    // Calculate how far we dragged
+    const openProgress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
+
+    if (openProgress >= OPEN_THRESHOLD) {
+      // Snap open
+      sidebar.classList.add('expanded');
+      sidebar.style.transform = '';
+      showMobileOverlay();
+    } else {
+      // Snap closed
+      sidebar.classList.remove('expanded');
+      sidebar.style.transform = '';
+      hideMobileOverlay();
     }
   }, { passive: true });
 }
 
 export function initializeSidebarUI(): void {
-  console.log('📋 Sidebar UI (V1 + Sticky Bulk Select + Theme Toggle + Mobile Drawer)');
+  console.log('📋 Sidebar UI (V1 + Sticky Bulk Select + Theme Toggle + Daraz Drawer)');
 
   initSidebarTheme();
   setupTouchSwipe();
