@@ -139,7 +139,8 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)
 .bdm-confirm{background:#dc2626;color:#fff;box-shadow:0 2px 6px rgba(220,38,38,0.25)}
 .bdm-confirm:hover{background:#b91c1c;transform:translateY(-1px)}
 
-.chat-menu{position:fixed;z-index:1000;min-width:150px;padding:4px;background:var(--sidebar-bg,#0a0a0a);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border:1px solid var(--sidebar-border,rgba(255,255,255,0.06));border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,0.5),0 4px 8px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.05) inset;display:flex;flex-direction:column;gap:2px;animation:menuIn 0.2s cubic-bezier(0.22,1,0.36,1);transition:background var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1)),border-color var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1))}
+/* ✅ CHAT MENU — Theme-aware, NO heavy shadow on mobile */
+.chat-menu{position:fixed;z-index:10002;min-width:150px;padding:4px;background:var(--sidebar-bg,#0a0a0a);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border:1px solid var(--sidebar-border,rgba(255,255,255,0.06));border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,0.5),0 4px 8px rgba(0,0,0,0.3),0 0 0 1px rgba(255,255,255,0.05) inset;display:flex;flex-direction:column;gap:2px;animation:menuIn 0.2s cubic-bezier(0.22,1,0.36,1);transition:background var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1)),border-color var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1))}
 @keyframes menuIn{from{opacity:0;transform:translateY(-6px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .chat-menu-btn{display:flex;align-items:center;gap:9px;padding:8px 11px;border:none;background:transparent;border-radius:7px;font-family:'Inter',sans-serif;font-size:0.76rem;font-weight:500;color:var(--sidebar-text-muted,#a1a1aa);cursor:pointer;text-align:left;transition:all 0.18s cubic-bezier(0.4,0,0.2,1),color var(--theme-transition, 0.6s cubic-bezier(0.4,0,0.2,1));position:relative;overflow:hidden}
 .chat-menu-btn::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:60%;background:var(--sidebar-text,#fafafa);border-radius:0 2px 2px 0;transition:width 0.2s ease}
@@ -161,7 +162,7 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)
 .rename-cancel{background:var(--sidebar-hover,rgba(255,255,255,0.06));color:var(--sidebar-text-muted,#a1a1aa)}
 .rename-cancel:hover{background:var(--sidebar-hover,rgba(255,255,255,0.1));color:var(--sidebar-text,#fafafa);transform:scale(1.06)}
 
-/* ✅ MOBILE OVERLAY — FIXED: display:none when hidden to prevent click blocking */
+/* ✅ MOBILE OVERLAY — display:none when hidden to prevent click blocking */
 .sidebar-mobile-overlay{
   position:fixed;inset:0;
   z-index:99;
@@ -196,6 +197,12 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0deg) scale(1)
   .sidebar.hub-fullscreen{
     transform:translateX(0)!important;
     width:100%!important;
+  }
+
+  /* ✅ Chat menu: lighter shadow on mobile, higher z-index than sidebar */
+  .chat-menu{
+    box-shadow:0 4px 12px rgba(0,0,0,0.3)!important;
+    z-index:10002!important;
   }
 
   .sidebar .sidebar-content{opacity:1!important;pointer-events:auto!important;transition:none!important}

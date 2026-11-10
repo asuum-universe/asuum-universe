@@ -46,10 +46,6 @@ function toggleSidebarTheme(): void {
 
 function isMobile(): boolean { return window.innerWidth <= 768; }
 
-/**
- * ✅ OVERLAY MANAGEMENT — Uses display:none/block instead of visibility
- * This guarantees overlay NEVER blocks clicks when hidden
- */
 function ensureMobileOverlay(): void {
   if (mobileOverlayEl) return;
   mobileOverlayEl = document.createElement('div');
@@ -60,7 +56,6 @@ function ensureMobileOverlay(): void {
 
 function showMobileOverlay(): void {
   ensureMobileOverlay();
-  // Force display:block first, then animate opacity in next frame
   mobileOverlayEl!.style.display = 'block';
   requestAnimationFrame(() => {
     mobileOverlayEl?.classList.add('visible');
@@ -70,8 +65,6 @@ function showMobileOverlay(): void {
 function hideMobileOverlay(): void {
   if (!mobileOverlayEl) return;
   mobileOverlayEl.classList.remove('visible');
-  // Wait for opacity transition to finish, THEN set display:none
-  // This prevents the overlay from blocking clicks during fade-out
   setTimeout(() => {
     if (mobileOverlayEl && !mobileOverlayEl.classList.contains('visible')) {
       mobileOverlayEl.style.display = 'none';
@@ -79,9 +72,6 @@ function hideMobileOverlay(): void {
   }, 250);
 }
 
-/**
- * ✅ CLOSE MOBILE SIDEBAR — Closes sidebar + all menus + overlay
- */
 function closeMobileSidebar(): void {
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
@@ -93,9 +83,6 @@ function closeMobileSidebar(): void {
   closeBulkMenu();
 }
 
-/**
- * ✅ DARAZ-STYLE TOUCH SWIPE — Real-time drag to open sidebar
- */
 function setupTouchSwipe(): void {
   let touchStartX = 0;
   let touchStartY = 0;
@@ -111,7 +98,6 @@ function setupTouchSwipe(): void {
     touchStartY = e.touches[0].clientY;
     isDragging = true;
     currentTranslateX = -SIDEBAR_WIDTH;
-
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.style.transition = 'none';
   }, { passive: true });
@@ -120,24 +106,16 @@ function setupTouchSwipe(): void {
     if (!isDragging || !isMobile()) return;
     const dx = e.touches[0].clientX - touchStartX;
     const dy = Math.abs(e.touches[0].clientY - touchStartY);
-
     if (dy > VERTICAL_MAX && dy > Math.abs(dx)) {
       isDragging = false;
       const sidebar = document.getElementById('sidebar');
       if (sidebar) sidebar.style.transition = '';
       return;
     }
-
     if (dx <= 0) return;
-
     currentTranslateX = Math.max(-SIDEBAR_WIDTH, Math.min(0, -SIDEBAR_WIDTH + dx));
-
     const sidebar = document.getElementById('sidebar');
-    if (sidebar) {
-      sidebar.style.transform = `translateX(${currentTranslateX}px)`;
-    }
-
-    // Update overlay opacity proportionally during drag
+    if (sidebar) sidebar.style.transform = `translateX(${currentTranslateX}px)`;
     const progress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
     ensureMobileOverlay();
     if (mobileOverlayEl) {
@@ -150,14 +128,10 @@ function setupTouchSwipe(): void {
   document.addEventListener('touchend', () => {
     if (!isDragging || !isMobile()) return;
     isDragging = false;
-
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
-
     sidebar.style.transition = '';
-
     const openProgress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
-
     if (openProgress >= OPEN_THRESHOLD) {
       sidebar.classList.add('expanded');
       sidebar.style.transform = '';
@@ -172,16 +146,12 @@ function setupTouchSwipe(): void {
 
 export function initializeSidebarUI(): void {
   console.log('📋 Sidebar UI (V1 + Sticky Bulk Select + Theme Toggle + Daraz Drawer)');
-
   initSidebarTheme();
   setupTouchSwipe();
 
   const sbThemeToggle = document.getElementById('sbThemeToggle');
   if (sbThemeToggle) {
-    sbThemeToggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleSidebarTheme();
-    });
+    sbThemeToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebarTheme(); });
   }
 
   const newChatBtn = document.querySelector('.new-chat-btn');
@@ -196,18 +166,30 @@ export function initializeSidebarUI(): void {
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
   /**
-   * ✅ GLOBAL CLICK — Only closes sidebar when clicking OUTSIDE sidebar
-   * Sidebar internal clicks (empty space, buttons, etc.) are IGNORED
+   * ✅ GLOBAL CLICK — FIXED:
+   * - Clicking inside sidebar (chats, empty space, buttons) → sidebar stays OPEN
+   * - Clicking three-dots button or chat-menu popup → sidebar stays OPEN
+   * - Clicking overlay (outside sidebar) → sidebar CLOSES
+   * - Clicking new-chat button → handled separately (closes sidebar intentionally)
    */
   document.addEventListener('click', (e: Event) => {
-    const target = e.target as Node;
+    const target = e.target as HTMLElement;
     const sidebar = document.getElementById('sidebar');
+
+    // ✅ NEVER close sidebar if click is on/inside chat-menu popup
+    if (menuEl && menuEl.contains(target)) return;
+    // ✅ NEVER close sidebar if click is on three-dots button
+    if (target.closest('.chat-item-menu')) return;
+    // ✅ NEVER close sidebar if click is on/inside bulk-dropdown
+    if (bulkMenuEl && bulkMenuEl.contains(target)) return;
+    // ✅ NEVER close sidebar if click is on bulk dots button
+    if (target.closest('.bb-dots')) return;
 
     // Close menus if clicked outside them
     if (bulkMenuEl && !bulkMenuEl.contains(target)) closeBulkMenu();
     if (menuEl && !menuEl.contains(target)) closeMenu();
 
-    // Only close mobile sidebar if click is OUTSIDE sidebar AND overlay is active
+    // Only close mobile sidebar if click is OUTSIDE sidebar entirely
     if (isMobile() && sidebar && !sidebar.contains(target)) {
       if (mobileOverlayEl?.classList.contains('visible')) {
         closeMobileSidebar();
