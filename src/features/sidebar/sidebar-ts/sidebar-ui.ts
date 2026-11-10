@@ -157,6 +157,18 @@ export function initializeSidebarUI(): void {
   const newChatBtn = document.querySelector('.new-chat-btn');
   if (newChatBtn) newChatBtn.addEventListener('click', () => handleNewChatFromSidebar());
 
+  /**
+   * ✅ CRITICAL FIX: Stop ALL clicks inside sidebar from reaching document listener
+   * This prevents sidebar close when clicking ANY element inside sidebar
+   * (chats, empty space, three-dots, buttons, etc.)
+   */
+  const sidebar = document.getElementById('sidebar');
+  if (sidebar) {
+    sidebar.addEventListener('click', (e: Event) => {
+      e.stopPropagation();
+    });
+  }
+
   document.addEventListener('asuum:session-opened', () => {
     if (isMobile()) closeMobileSidebar();
   });
@@ -166,32 +178,26 @@ export function initializeSidebarUI(): void {
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
   /**
-   * ✅ GLOBAL CLICK — FIXED:
-   * - Clicking inside sidebar (chats, empty space, buttons) → sidebar stays OPEN
-   * - Clicking three-dots button or chat-menu popup → sidebar stays OPEN
-   * - Clicking overlay (outside sidebar) → sidebar CLOSES
-   * - Clicking new-chat button → handled separately (closes sidebar intentionally)
+   * ✅ GLOBAL CLICK — Only fires for clicks OUTSIDE sidebar
+   * Sidebar clicks are blocked by stopPropagation above
+   * This ONLY handles: overlay clicks, chat-menu clicks, bulk-dropdown clicks
    */
   document.addEventListener('click', (e: Event) => {
     const target = e.target as HTMLElement;
-    const sidebar = document.getElementById('sidebar');
 
-    // ✅ NEVER close sidebar if click is on/inside chat-menu popup
+    // If click is inside chat-menu popup → don't close anything
     if (menuEl && menuEl.contains(target)) return;
-    // ✅ NEVER close sidebar if click is on three-dots button
-    if (target.closest('.chat-item-menu')) return;
-    // ✅ NEVER close sidebar if click is on/inside bulk-dropdown
+    // If click is inside bulk-dropdown → don't close anything
     if (bulkMenuEl && bulkMenuEl.contains(target)) return;
-    // ✅ NEVER close sidebar if click is on bulk dots button
-    if (target.closest('.bb-dots')) return;
 
     // Close menus if clicked outside them
     if (bulkMenuEl && !bulkMenuEl.contains(target)) closeBulkMenu();
     if (menuEl && !menuEl.contains(target)) closeMenu();
 
-    // Only close mobile sidebar if click is OUTSIDE sidebar entirely
-    if (isMobile() && sidebar && !sidebar.contains(target)) {
-      if (mobileOverlayEl?.classList.contains('visible')) {
+    // Close mobile sidebar only if overlay is visible and click is on overlay
+    if (isMobile() && mobileOverlayEl?.classList.contains('visible')) {
+      // Check if click target is the overlay itself
+      if (target === mobileOverlayEl || target.classList.contains('sidebar-mobile-overlay')) {
         closeMobileSidebar();
       }
     }
