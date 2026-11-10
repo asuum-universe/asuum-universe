@@ -46,6 +46,10 @@ function toggleSidebarTheme(): void {
 
 function isMobile(): boolean { return window.innerWidth <= 768; }
 
+/**
+ * ✅ OVERLAY MANAGEMENT — Uses display:none/block instead of visibility
+ * This guarantees overlay NEVER blocks clicks when hidden
+ */
 function ensureMobileOverlay(): void {
   if (mobileOverlayEl) return;
   mobileOverlayEl = document.createElement('div');
@@ -56,15 +60,27 @@ function ensureMobileOverlay(): void {
 
 function showMobileOverlay(): void {
   ensureMobileOverlay();
-  requestAnimationFrame(() => mobileOverlayEl?.classList.add('visible'));
+  // Force display:block first, then animate opacity in next frame
+  mobileOverlayEl!.style.display = 'block';
+  requestAnimationFrame(() => {
+    mobileOverlayEl?.classList.add('visible');
+  });
 }
 
 function hideMobileOverlay(): void {
-  mobileOverlayEl?.classList.remove('visible');
+  if (!mobileOverlayEl) return;
+  mobileOverlayEl.classList.remove('visible');
+  // Wait for opacity transition to finish, THEN set display:none
+  // This prevents the overlay from blocking clicks during fade-out
+  setTimeout(() => {
+    if (mobileOverlayEl && !mobileOverlayEl.classList.contains('visible')) {
+      mobileOverlayEl.style.display = 'none';
+    }
+  }, 250);
 }
 
 /**
- * ✅ CLOSE MOBILE SIDEBAR — Also closes ALL open menus/popups
+ * ✅ CLOSE MOBILE SIDEBAR — Closes sidebar + all menus + overlay
  */
 function closeMobileSidebar(): void {
   const sidebar = document.getElementById('sidebar');
@@ -73,7 +89,6 @@ function closeMobileSidebar(): void {
   sidebar.classList.remove('expanded');
   sidebar.style.transform = '';
   hideMobileOverlay();
-  // ✅ Close any open chat menu or bulk menu when sidebar closes
   closeMenu();
   closeBulkMenu();
 }
@@ -122,11 +137,12 @@ function setupTouchSwipe(): void {
       sidebar.style.transform = `translateX(${currentTranslateX}px)`;
     }
 
+    // Update overlay opacity proportionally during drag
     const progress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
     ensureMobileOverlay();
     if (mobileOverlayEl) {
+      mobileOverlayEl.style.display = 'block';
       mobileOverlayEl.style.opacity = String(progress * 0.5);
-      mobileOverlayEl.style.visibility = progress > 0.01 ? 'visible' : 'hidden';
       mobileOverlayEl.style.pointerEvents = progress > 0.01 ? 'auto' : 'none';
     }
   }, { passive: true });
@@ -180,23 +196,19 @@ export function initializeSidebarUI(): void {
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
   /**
-   * ✅ GLOBAL CLICK HANDLER — Fixed:
-   * 1. Sidebar inside clicks do NOT close sidebar
-   * 2. Menus inside sidebar do NOT trigger sidebar close
-   * 3. Only overlay click or outside click closes sidebar
+   * ✅ GLOBAL CLICK — Only closes sidebar when clicking OUTSIDE sidebar
+   * Sidebar internal clicks (empty space, buttons, etc.) are IGNORED
    */
   document.addEventListener('click', (e: Event) => {
     const target = e.target as Node;
     const sidebar = document.getElementById('sidebar');
 
-    // Close menus if clicked outside them (but NOT if clicking inside sidebar)
+    // Close menus if clicked outside them
     if (bulkMenuEl && !bulkMenuEl.contains(target)) closeBulkMenu();
     if (menuEl && !menuEl.contains(target)) closeMenu();
 
-    // ✅ ONLY close mobile sidebar if click is OUTSIDE sidebar entirely
-    // Sidebar contains check prevents closing when clicking ANY element inside sidebar
+    // Only close mobile sidebar if click is OUTSIDE sidebar AND overlay is active
     if (isMobile() && sidebar && !sidebar.contains(target)) {
-      // Only close if overlay is visible (sidebar is open)
       if (mobileOverlayEl?.classList.contains('visible')) {
         closeMobileSidebar();
       }
