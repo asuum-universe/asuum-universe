@@ -1,4 +1,4 @@
-/** sidebar-ui.ts — V1 CLEAN + STICKY BULK SELECT + SIDEBAR THEME TOGGLE + DARAZ-STYLE DRAWER */
+/** sidebar-ui.ts — Inside=Ignore, Outside=Close */
 import { getAllSessions, onHistoryChange, loadSession, startNewChat, getCurrentSession, renameSession, deleteSession, ChatSession } from '../../chat-screen/services/chat-store';
 import { getAllTabs, closeTab, getActiveTab, setActiveWorkspaceFilter, onTabsChange } from '../../header/services/header-tabs-store';
 import { setExplicitNewTabClicked, clearInjectedColor } from '../../welcome-screen/welcome-ts/welcome-ui';
@@ -43,7 +43,11 @@ function ensureMobileOverlay(): void {
   if (mobileOverlayEl) return;
   mobileOverlayEl = document.createElement('div');
   mobileOverlayEl.className = 'sidebar-mobile-overlay';
-  mobileOverlayEl.addEventListener('click', () => closeMobileSidebar());
+  mobileOverlayEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    closeMobileSidebar();
+  });
   document.body.appendChild(mobileOverlayEl);
 }
 
@@ -72,6 +76,13 @@ function closeMobileSidebar(): void {
   hideMobileOverlay();
   closeMenu();
   closeBulkMenu();
+}
+
+function openSidebar(): void {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  sidebar.classList.add('expanded');
+  if (isMobile()) showMobileOverlay();
 }
 
 function setupTouchSwipe(): void {
@@ -128,48 +139,55 @@ function setupTouchSwipe(): void {
 }
 
 export function initializeSidebarUI(): void {
-  console.log('📋 Sidebar UI (V1 + Sticky Bulk Select + Theme Toggle + Daraz Drawer)');
+  console.log('📋 Sidebar UI (Inside=Ignore, Outside=Close)');
   initSidebarTheme();
   setupTouchSwipe();
 
-  // ✅ Kill static overlay from sidebar.html if it exists
-  const staticOverlay = document.getElementById('sidebarOverlay');
-  if (staticOverlay) staticOverlay.style.display = 'none';
-  const staticOverlay2 = document.querySelector('.sidebar-overlay');
-  if (staticOverlay2) (staticOverlay2 as HTMLElement).style.display = 'none';
+  // Kill static overlays permanently
+  document.getElementById('sidebarOverlay')?.remove();
+  document.querySelector('.sidebar-overlay')?.remove();
+  document.getElementById('sidebarCloseBtn')?.remove();
+  document.querySelector('.sidebar-close-btn')?.remove();
+
+  // Toggle button opens/closes sidebar
+  const toggleBtn = document.getElementById('sidebarToggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const sidebar = document.getElementById('sidebar');
+      if (!sidebar) return;
+      if (sidebar.classList.contains('expanded')) closeMobileSidebar();
+      else openSidebar();
+    });
+  }
 
   const sbThemeToggle = document.getElementById('sbThemeToggle');
   if (sbThemeToggle) sbThemeToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebarTheme(); });
 
   const newChatBtn = document.querySelector('.new-chat-btn');
-  if (newChatBtn) newChatBtn.addEventListener('click', () => handleNewChatFromSidebar());
+  if (newChatBtn) newChatBtn.addEventListener('click', (e) => { e.stopPropagation(); handleNewChatFromSidebar(); });
 
   renderAll();
   onHistoryChange(() => { if (!selectionMode) renderAll(); });
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
   /**
-   * ✅ GLOBAL CLICK — Capture phase
-   * ONLY closes menus. NEVER closes sidebar.
-   * Sidebar close is EXCLUSIVELY handled by overlay click.
+   * GLOBAL CLICK HANDLER — Bubble phase
+   * Inside sidebar/menu/bulk → IGNORE
+   * Outside → Close menus only (NOT sidebar)
    */
   document.addEventListener('click', (e: Event) => {
     const target = e.target as HTMLElement;
     const sidebar = document.getElementById('sidebar');
 
-    // If click is inside sidebar → do NOTHING (let sidebar handle its own clicks)
     if (sidebar && sidebar.contains(target)) return;
-
-    // If click is inside chat-menu popup → do nothing
     if (menuEl && menuEl.contains(target)) return;
-
-    // If click is inside bulk-dropdown → do nothing
     if (bulkMenuEl && bulkMenuEl.contains(target)) return;
 
-    // Close menus if clicked outside them
-    if (menuEl && !menuEl.contains(target)) closeMenu();
-    if (bulkMenuEl && !bulkMenuEl.contains(target)) closeBulkMenu();
-  }, true); // ✅ CAPTURE PHASE
+    if (menuEl) closeMenu();
+    if (bulkMenuEl) closeBulkMenu();
+  });
 
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -250,7 +268,7 @@ function openBulkMenu(anchor: HTMLElement): void {
   bulkMenuEl.style.top = `${top}px`;
   bulkMenuEl.style.left = `${left}px`;
   requestAnimationFrame(() => bulkMenuEl?.classList.add('visible'));
-  bulkMenuEl.querySelector('#bulkSelectAllOpt')?.addEventListener('click', () => toggleSelectAll());
+  bulkMenuEl.querySelector('#bulkSelectAllOpt')?.addEventListener('click', (e) => { e.stopPropagation(); toggleSelectAll(); });
 }
 
 function closeBulkMenu(): void { if (bulkMenuEl) { bulkMenuEl.remove(); bulkMenuEl = null; } }
@@ -341,8 +359,8 @@ function wireEvents(): void {
     const cancelBtn = document.getElementById('bulkCancelBtn');
     const deleteBtn = document.getElementById('bulkDeleteBtn');
     const dotsBtn = document.getElementById('bulkDotsBtn');
-    if (cancelBtn) cancelBtn.addEventListener('click', () => exitSelectionMode());
-    if (deleteBtn) deleteBtn.addEventListener('click', () => showDeleteConfirmation());
+    if (cancelBtn) cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); exitSelectionMode(); });
+    if (deleteBtn) deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); showDeleteConfirmation(); });
     if (dotsBtn) dotsBtn.addEventListener('click', (e) => { e.stopPropagation(); openBulkMenu(dotsBtn as HTMLElement); });
     content.querySelectorAll('.chat-item').forEach(item => {
       item.addEventListener('click', (e) => { e.stopPropagation(); const id = (item as HTMLElement).dataset.id; if (id) toggleSelect(id); });
@@ -352,14 +370,14 @@ function wireEvents(): void {
   content.querySelectorAll('.chat-item').forEach(item => {
     const el = item as HTMLElement; const id = el.dataset.id;
     item.addEventListener('click', e => {
+      e.stopPropagation();
       if ((e.target as HTMLElement).closest('.chat-item-menu')) return;
       if (id) {
         setActiveWorkspaceFilter(null);
         loadSession(id);
-        // ✅ NO closeMobileSidebar() — sidebar stays open after chat selection
       }
     });
-    item.addEventListener('dblclick', e => { e.preventDefault(); if (id) { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); } });
+    item.addEventListener('dblclick', e => { e.preventDefault(); e.stopPropagation(); if (id) { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); } });
     item.addEventListener('mousedown', () => { if (!id) return; longPressTimer = setTimeout(() => { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); }, 500); });
     item.addEventListener('mouseup', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
     item.addEventListener('mouseleave', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
@@ -367,7 +385,14 @@ function wireEvents(): void {
     item.addEventListener('touchend', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
   });
   content.querySelectorAll('.chat-item-menu').forEach(btn => {
-    btn.addEventListener('click', e => { e.stopPropagation(); const item = (btn as HTMLElement).closest('.chat-item') as HTMLElement; const id = item?.dataset.id; const title = item?.querySelector('.chat-item-title')?.textContent || ''; if (id) openChatMenu(btn as HTMLElement, id, title); });
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      e.preventDefault();
+      const item = (btn as HTMLElement).closest('.chat-item') as HTMLElement;
+      const id = item?.dataset.id;
+      const title = item?.querySelector('.chat-item-title')?.textContent || '';
+      if (id) openChatMenu(btn as HTMLElement, id, title);
+    });
   });
 }
 
@@ -377,9 +402,19 @@ function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: stri
   menuEl.className = 'chat-menu';
   menuEl.innerHTML = `<button class="chat-menu-btn rename-btn">${ICON_RENAME}<span>Rename</span></button><button class="chat-menu-btn delete-btn">${ICON_DELETE}<span>Delete</span></button>`;
   document.body.appendChild(menuEl);
-  positionMenu(anchor);
-  menuEl.querySelector('.rename-btn')?.addEventListener('click', () => { if (menuEl) showChatRename(menuEl, sessionId, currentTitle); });
-  menuEl.querySelector('.delete-btn')?.addEventListener('click', () => {
+  const r = anchor.getBoundingClientRect();
+  const mw = menuEl.offsetWidth || 150;
+  const mh = menuEl.offsetHeight || 80;
+  let left = r.right - mw;
+  let top = r.bottom + 4;
+  if (left < 8) left = 8;
+  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+  if (top + mh > window.innerHeight - 8) top = r.top - mh - 4;
+  menuEl.style.left = `${left}px`;
+  menuEl.style.top = `${top}px`;
+  menuEl.querySelector('.rename-btn')?.addEventListener('click', (e) => { e.stopPropagation(); if (menuEl) showChatRename(menuEl, sessionId, currentTitle); });
+  menuEl.querySelector('.delete-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
     getAllTabs().filter(t => t.sessionId === sessionId).forEach(tab => closeTab(tab.id));
     deleteSession(sessionId);
     renderAll();
@@ -393,19 +428,10 @@ function showChatRename(menu: HTMLElement, sessionId: string, currentTitle: stri
   const input = menu.querySelector('.chat-menu-input') as HTMLInputElement;
   input.focus(); input.select();
   const save = () => { const v = input.value.trim(); if (v) renameSession(sessionId, v); closeMenu(); };
-  menu.querySelector('.rename-save')?.addEventListener('click', save);
-  menu.querySelector('.rename-cancel')?.addEventListener('click', () => closeMenu());
+  menu.querySelector('.rename-save')?.addEventListener('click', (e) => { e.stopPropagation(); save(); });
+  menu.querySelector('.rename-cancel')?.addEventListener('click', (e) => { e.stopPropagation(); closeMenu(); });
   input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') closeMenu(); });
-}
-
-function positionMenu(anchor: HTMLElement): void {
-  if (!menuEl) return;
-  const r = anchor.getBoundingClientRect(), mw = menuEl.offsetWidth, mh = menuEl.offsetHeight;
-  let left = Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8));
-  let top = r.bottom + 6;
-  if (top + mh > window.innerHeight - 8) top = r.top - mh - 6;
-  menuEl.style.top = `${top}px`;
-  menuEl.style.left = `${left}px`;
+  input.addEventListener('click', (e) => e.stopPropagation());
 }
 
 function closeMenu(): void { if (menuEl) { menuEl.remove(); menuEl = null; } }
