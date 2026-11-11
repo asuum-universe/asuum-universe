@@ -3,17 +3,17 @@
    Must load AFTER header-main.css.
    --------------------------------------------------------------------------
    · Header: max-width 350px, 35px gap each side
-   · Patla height: 32px (pehle 38px tha) · Hero height: 54px
-   · Header thoda upar: top 2px (pehle 4px tha)
-   · Arrow: top:16px FIXED (32px height center) — NEVER moves
+   · Patla height: 28px (pehle 32px tha) · Hero height: 54px
+   · Header top: 2px
+   · Arrow: top:14px FIXED (28px height center) — NEVER moves
    ========================================================================== */
 
 @media(max-width:768px){
 
-  /* ── HEADER AREA: thoda upar shift ── */
+  /* ── HEADER AREA ── */
   .header-area{
     position:absolute;
-    top:2px;                    /* ✅ pehle 4px tha — thoda upar */
+    top:2px;
     left:50%;
     transform:translateX(-50%);
     width:calc(100% - 70px);
@@ -25,11 +25,11 @@
   }
   .header-area.header-hidden{opacity:0;pointer-events:none!important;transform:translateX(-50%) translateY(-10px)}
 
-  /* ── HEADER CONTAINER: patla state thoda aur patla ── */
+  /* ── HEADER CONTAINER: aur patla ── */
   .header-container{
     width:100%;
     max-width:350px;
-    height:32px;                /* ✅ pehle 38px tha */
+    height:28px;                /* ✅ pehle 32px tha */
     padding:0 6px;
     border-radius:12px;
     position:relative;
@@ -39,7 +39,7 @@
     height:54px;padding:0 8px;border-radius:15px;
   }
   .header-area.welcome-header.welcome-collapsed .header-container{
-    height:32px;                /* ✅ pehle 38px tha */
+    height:28px;                /* ✅ pehle 32px tha */
     padding:0 6px;
     border-radius:12px;
   }
@@ -60,15 +60,15 @@
   .reopen-arrow-icon{width:28px;height:18px;margin-left:-14px;top:4px;padding-bottom:3px}
   .reopen-arrow-icon svg{width:12px;height:7px}
 
-  /* ── ARROW: PERMANENTLY FIXED at top:16px ──
-     ✅ 32px height ka exact center = 16px
+  /* ── ARROW: PERMANENTLY FIXED at top:14px ──
+     ✅ 28px height ka exact center = 14px
      ✅ Header patla/mota → arrow HILTA NAHI */
   .header-close-btn{
     display:flex!important;
     position:absolute;right:6px;
-    top:16px;                   /* ✅ pehle 19px tha, ab 32px center */
+    top:14px;                   /* ✅ pehle 16px tha, ab 28px center */
     transform:translateY(-50%) scale(1);
-    width:28px;height:28px;
+    width:26px;height:26px;     /* ✅ button bhi thoda slim (28→26) */
     border:none;background:rgba(255,255,255,.04);border-radius:7px;
     display:flex;align-items:center;justify-content:center;
     cursor:pointer;color:#a1a1aa;overflow:hidden;z-index:7;
@@ -90,9 +90,9 @@
   /* ── LEFT RESERVED SLOT ── */
   .header-slot-btn{
     display:flex!important;align-items:center;justify-content:center;
-    position:absolute;top:16px;transform:translateY(-50%);  /* ✅ pehle 19px tha */
+    position:absolute;top:14px;transform:translateY(-50%);  /* ✅ pehle 16px tha */
     left:6px;
-    width:28px;height:28px;min-width:28px;padding:0;
+    width:26px;height:26px;min-width:26px;padding:0;
     border:none;border-radius:7px;
     background:transparent;opacity:0;pointer-events:none;
     z-index:8;overflow:hidden;
@@ -106,7 +106,7 @@
     position:absolute;top:50%;
     left:8px;right:auto;
     transform:translateY(-50%);
-    width:26px;height:26px;
+    width:22px;height:22px;     /* ✅ 28px container ke liye slim avatar */
     background:transparent;border:none;
     display:flex;align-items:center;justify-content:center;
     z-index:6;padding:0;cursor:pointer;
@@ -121,15 +121,15 @@
   .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{left:calc(50% - 23px);right:auto;transform:translateY(-50%);width:46px;height:46px}
   .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:hover{transform:translateY(-50%) scale(1.05)}
   .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:active{transform:translateY(-50%) scale(.95)}
-  .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:8px;right:auto;transform:translateY(-50%);width:26px;height:26px}
+  .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:8px;right:auto;transform:translateY(-50%);width:22px;height:22px}
 
   .header-area.welcome-header:not(.welcome-collapsed) .avatar-hand-left{width:8px;height:8px;right:calc(100% + 4px)}
   .header-area.welcome-header:not(.welcome-collapsed) .avatar-hand-right{width:8px;height:16px;left:calc(100% + 4px);bottom:calc(50% - 4px)}
-  .capsule-eye{width:3px;height:7px}
-  .capsule-eyes{gap:3.5px}
-  .mouth{width:3.5px;height:.8px}
-  .mouth.happy{width:5.5px;height:2px}
-  .mouth.excited{width:7px;height:2.5px}
+  .capsule-eye{width:3px;height:6px}
+  .capsule-eyes{gap:3px}
+  .mouth{width:3px;height:.8px}
+  .mouth.happy{width:5px;height:2px}
+  .mouth.excited{width:6px;height:2.5px}
   .header-area.welcome-header:not(.welcome-collapsed) .capsule-eye{width:4px;height:9px}
   .header-area.welcome-header:not(.welcome-collapsed) .capsule-eyes{gap:5px}
   .header-area.welcome-header:not(.welcome-collapsed) .mouth{width:4px;height:1px}
@@ -140,7 +140,7 @@
   .header-title-area{
     position:absolute;left:50%;top:50%;
     transform:translate(-50%,-50%);
-    width:calc(100% - 72px);
+    width:calc(100% - 68px);
     padding:0;box-sizing:border-box;z-index:5;
     transition:opacity .4s ease;
   }
@@ -149,36 +149,36 @@
   .header-area:not(.welcome-header) .header-title-area{opacity:1;pointer-events:auto}
 
   .single-title-wrap{gap:4px;justify-content:center}
-  .single-title-text{font-size:.76rem;max-width:100%;text-align:center}
-  .single-title-input{font-size:.76rem;max-width:100%;min-width:70px;text-align:center}
-  .single-title-menu-btn{opacity:1;width:18px;height:18px}
-  .single-title-menu-btn svg{width:12px;height:12px}
+  .single-title-text{font-size:.74rem;max-width:100%;text-align:center;line-height:1.2}
+  .single-title-input{font-size:.74rem;max-width:100%;min-width:70px;text-align:center}
+  .single-title-menu-btn{opacity:1;width:16px;height:16px}
+  .single-title-menu-btn svg{width:11px;height:11px}
 
-  /* ── Content padding (header upar + patla → kam padding) ── */
-  .main-area .main-panel.chat-active .chat-screen{padding-top:44px}
+  /* ── Content padding (header aur patla → kam padding) ── */
+  .main-area .main-panel.chat-active .chat-screen{padding-top:40px}
   .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:12px}
 
   /* ── THREE-LINE MENU ── */
   .mm-wrap{top:2px!important;right:6px!important;z-index:200!important}
 
-  .hdr-toast{top:52px;font-size:11.5px;padding:7px 15px}
+  .hdr-toast{top:48px;font-size:11.5px;padding:7px 15px}
 }
 
 @media(max-width:380px){
   .header-area{top:2px;width:calc(100% - 50px);max-width:290px;padding:0 4px}
-  .header-container{padding:0 5px;max-width:290px;height:32px}
+  .header-container{padding:0 5px;max-width:290px;height:28px}
 
-  .header-close-btn{right:4px;top:16px}
-  .header-slot-btn{left:4px;top:16px}
+  .header-close-btn{right:4px;top:14px}
+  .header-slot-btn{left:4px;top:14px}
 
-  .header-avatar-toggle{left:5px}
+  .header-avatar-toggle{left:5px;width:22px;height:22px}
   .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:5px}
   .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{left:calc(50% - 21px);width:42px;height:42px}
 
-  .header-title-area{width:calc(100% - 56px)}
+  .header-title-area{width:calc(100% - 54px)}
   .single-title-text{font-size:.72rem}
   .single-title-input{min-width:55px}
 
-  .main-area .main-panel.chat-active .chat-screen{padding-top:42px}
+  .main-area .main-panel.chat-active .chat-screen{padding-top:38px}
   .mm-wrap{top:2px!important;right:5px!important}
 }
