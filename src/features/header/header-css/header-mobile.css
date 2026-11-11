@@ -2,22 +2,21 @@
    header-mobile.css — MOBILE OVERRIDE LAYER ONLY
    Must load AFTER header-main.css.
    --------------------------------------------------------------------------
-   · Header WIDER: max-width 380px (pehle 320px tha)
-   · Avatar hero: 46×46 (pehle 40×40 tha)
+   · Header balanced: max-width 350px, 35px gap each side
+   · Avatar hero: 46×46
    · Arrow: top:19px FIXED — NEVER moves
-   · Avatar: LEFT side (collapsed/chat) · CENTRE big (hero)
    ========================================================================== */
 
 @media(max-width:768px){
 
-  /* ── HEADER AREA: wider than before ── */
+  /* ── HEADER AREA: thoda kam wide ── */
   .header-area{
     position:absolute;
     top:4px;
     left:50%;
     transform:translateX(-50%);
-    width:calc(100% - 60px);   /* 30px gap each side (pehle 40px tha) */
-    max-width:380px;            /* ✅ pehle 320px tha */
+    width:calc(100% - 70px);   /* 35px gap each side (pehle 30px tha) */
+    max-width:350px;            /* ✅ pehle 380px tha */
     padding:0 6px;
     margin:0;
     z-index:100;
@@ -25,10 +24,10 @@
   }
   .header-area.header-hidden{opacity:0;pointer-events:none!important;transform:translateX(-50%) translateY(-10px)}
 
-  /* ── HEADER CONTAINER: wider ── */
+  /* ── HEADER CONTAINER ── */
   .header-container{
     width:100%;
-    max-width:380px;            /* ✅ pehle 320px tha */
+    max-width:350px;            /* ✅ pehle 380px tha */
     height:38px;
     padding:0 6px;
     border-radius:12px;
@@ -114,14 +113,11 @@
   }
   .header-avatar-toggle:hover{transform:translateY(-50%) scale(1.06)}
   .header-avatar-toggle:active{transform:translateY(-50%) scale(.94)}
-  /* ✅ Hero mode: bigger avatar — 46×46 (pehle 40×40 tha) */
   .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{left:calc(50% - 23px);right:auto;transform:translateY(-50%);width:46px;height:46px}
   .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:hover{transform:translateY(-50%) scale(1.05)}
   .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:active{transform:translateY(-50%) scale(.95)}
-  /* ✅ Collapsed: slides back to LEFT */
   .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:8px;right:auto;transform:translateY(-50%);width:26px;height:26px}
 
-  /* Avatar face parts scaled for bigger hero */
   .header-area.welcome-header:not(.welcome-collapsed) .avatar-hand-left{width:8px;height:8px;right:calc(100% + 4px)}
   .header-area.welcome-header:not(.welcome-collapsed) .avatar-hand-right{width:8px;height:16px;left:calc(100% + 4px);bottom:calc(50% - 4px)}
   .capsule-eye{width:3px;height:7px}
@@ -129,7 +125,6 @@
   .mouth{width:3.5px;height:.8px}
   .mouth.happy{width:5.5px;height:2px}
   .mouth.excited{width:7px;height:2.5px}
-  /* ✅ Hero mode: bigger eyes/mouth for bigger avatar */
   .header-area.welcome-header:not(.welcome-collapsed) .capsule-eye{width:4px;height:9px}
   .header-area.welcome-header:not(.welcome-collapsed) .capsule-eyes{gap:5px}
   .header-area.welcome-header:not(.welcome-collapsed) .mouth{width:4px;height:1px}
@@ -165,9 +160,9 @@
 }
 
 @media(max-width:380px){
-  /* ── Smaller phones: slightly narrower but still wider than before ── */
-  .header-area{width:calc(100% - 40px);max-width:320px;padding:0 4px}
-  .header-container{padding:0 5px;max-width:320px}
+  /* ── Smaller phones: slightly adjusted ── */
+  .header-area{width:calc(100% - 50px);max-width:290px;padding:0 4px}
+  .header-container{padding:0 5px;max-width:290px}
 
   .header-close-btn{right:4px;top:19px}
   .header-slot-btn{left:4px;top:19px}
