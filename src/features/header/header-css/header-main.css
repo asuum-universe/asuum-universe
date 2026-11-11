@@ -1,7 +1,6 @@
 /* ==========================================================================
    header-main.css — BASE + DESKTOP LAYER
    Load order: header-main.css → header-mobile.css
-   Mobile-only controls exist in DOM but are display:none here.
    ========================================================================== */
 
 .header-area{display:flex;justify-content:center;position:absolute;top:4px;left:50%;transform:translateX(-50%);width:90%;max-width:760px;padding:0 8px;margin:0;z-index:100}
@@ -77,15 +76,21 @@
 .header-area.welcome-header:not(.welcome-collapsed) .header-title-area{opacity:0;pointer-events:none}
 .header-area.welcome-header.welcome-collapsed .header-title-area{opacity:1;pointer-events:auto}
 
-.header-close-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:none;background:rgba(255,255,255,.04);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#a1a1aa;overflow:hidden;transition:background .2s ease,color .2s ease,opacity .4s ease;z-index:7}
+/* ── OPEN/CLOSE ARROW — PERMANENTLY FIXED POSITION ──
+   ✅ top:18px FIXED hai (36px height ka exact center)
+   ✅ Header mota/patla ho → arrow MOVE NAHI karta
+   ✅ Sirf opacity + scale change hota hai (smooth fade)
+   ✅ Hero mode: arrow hidden (opacity 0) — position irrelevant
+   ✅ Collapsed/Chat: arrow visible at SAME fixed spot */
+.header-close-btn{position:absolute;right:6px;top:18px;transform:translateY(-50%) scale(1);width:28px;height:28px;border:none;background:rgba(255,255,255,.04);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#a1a1aa;overflow:hidden;z-index:7;transition:background .2s ease,color .2s ease,opacity .4s ease,transform .35s cubic-bezier(.22,1,.36,1)}
 .header-close-btn:hover{background:rgba(255,255,255,.08);color:#fff}
 .header-close-btn:active{transform:translateY(-50%) scale(.94)}
 .header-close-btn svg{width:12px;height:12px;transition:transform .25s cubic-bezier(.22,1,.36,1);position:relative;z-index:1}
 .header-close-btn:hover svg{transform:translateY(-1.5px)}
 .header-area.header-closed .header-close-btn{display:none}
-.header-area.welcome-header:not(.welcome-collapsed) .header-close-btn{opacity:0;pointer-events:none}
-.header-area.welcome-header.welcome-collapsed .header-close-btn{opacity:1;pointer-events:auto}
-.header-area:not(.welcome-header) .header-close-btn{opacity:1;pointer-events:auto}
+.header-area.welcome-header:not(.welcome-collapsed) .header-close-btn{opacity:0;pointer-events:none;transform:translateY(-50%) scale(.85)}
+.header-area.welcome-header.welcome-collapsed .header-close-btn{opacity:1;pointer-events:auto;transform:translateY(-50%) scale(1)}
+.header-area:not(.welcome-header) .header-close-btn{opacity:1;pointer-events:auto;transform:translateY(-50%) scale(1)}
 .header-close-btn::before{content:'Collapse';position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%) translateY(3px);background:#0a0a0a;color:#fafafa;font-size:9px;font-weight:500;padding:2px 6px;border-radius:4px;white-space:nowrap;opacity:0;pointer-events:none;transition:all .18s ease;z-index:100;box-shadow:0 3px 10px rgba(0,0,0,.3)}
 .header-close-btn:hover::before{opacity:1;transform:translateX(-50%) translateY(0)}
 
@@ -120,7 +125,7 @@
 /* ── MOBILE-ONLY CONTROLS: hidden on desktop ── */
 .header-slot-btn,.header-menu-btn{display:none!important}
 
-/* ── HEADER MENU POPUP (reachable only from the mobile button) ── */
+/* ── HEADER MENU POPUP ── */
 .header-menu-pop{position:fixed;z-index:10004;min-width:176px;max-width:min(230px,84vw);padding:4px;background:#0a0a0a;border:1px solid rgba(255,255,255,.1);border-radius:10px;box-shadow:none;display:flex;flex-direction:column;gap:1px;font-family:'Inter',sans-serif;animation:hdrMenuIn .16s cubic-bezier(.22,1,.36,1)}
 .header-menu-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border:none;background:transparent;border-radius:7px;font-family:inherit;font-size:12.5px;font-weight:500;color:#d4d4d8;cursor:pointer;width:100%;text-align:left;position:relative;overflow:hidden;transition:background .15s ease,color .15s ease,padding-left .15s ease}
 .header-menu-item::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:55%;background:#fafafa;border-radius:0 2px 2px 0;transition:width .16s ease}
