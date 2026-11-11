@@ -2,88 +2,149 @@
    header-mobile.css — MOBILE OVERRIDE LAYER ONLY
    Must load AFTER header-main.css.
    --------------------------------------------------------------------------
-   MOBILE TOP BAND
-     ┌──────────────────────────────────────┐
-     │ [left slot]                 [ ⋮ menu] │  fixed · 32×32 · top 8px
-     │                                      │
-     │            ┌────────────┐            │
-     │            │   header   │            │  centred · below buttons
-     │            └────────────┘            │
-     └──────────────────────────────────────┘
-   Edge buttons are FIXED to the viewport corners (independent of the bar).
-   The bar is narrow, centred, and sits underneath them.
+   DESKTOP-MATCHING MOBILE HEADER
+     · Narrow header (max-width 400px, 24px side gap)
+     · Avatar: LEFT side (collapsed/chat) · CENTRE big (hero)
+     · Arrow: hides in hero, reveals smoothly on collapse (0.4s ease,
+       EXACT same transition as desktop .header-close-btn)
    ========================================================================== */
 
 @media(max-width:768px){
 
-  /* ── header-area: full-width band, pushed below the corner buttons ── */
+  /* ── HEADER AREA: narrow ── */
   .header-area{
-    left:0;transform:none;
-    width:100%;max-width:none;
-    padding:0;top:44px;
+    position:absolute;
+    top:4px;
+    left:50%;
+    transform:translateX(-50%);
+    width:calc(100% - 48px);
+    max-width:400px;
+    padding:0 6px;
+    margin:0;
+    z-index:100;
     justify-content:center;
   }
-  .header-area.header-hidden{opacity:0;pointer-events:none!important;transform:translateY(-10px)}
-  /* jab bar collapse ho, reopen line upar aa jaye (buttons abhi bhi visible) */
-  .header-area.header-closed{top:6px}
+  .header-area.header-hidden{opacity:0;pointer-events:none!important;transform:translateX(-50%) translateY(-10px)}
 
-  /* ── header-container: narrow + centred (NO left:50% — area is already full width) ── */
+  /* ── HEADER CONTAINER ── */
   .header-container{
-    width:min(320px,calc(100vw - 96px));
-    max-width:none;
-    margin:0 auto;
+    width:100%;
+    max-width:400px;
     height:38px;
-    padding:0 7px;
-    border-radius:11px;
-    position:relative;left:auto;transform:none;
+    padding:0 6px;
+    border-radius:12px;
+    position:relative;
+    z-index:5;
   }
   .header-area.welcome-header:not(.welcome-collapsed) .header-container{
-    width:min(320px,calc(100vw - 96px));height:52px;padding:0 8px;border-radius:15px;
+    height:54px;padding:0 8px;border-radius:15px;
   }
   .header-area.welcome-header.welcome-collapsed .header-container{
-    width:min(320px,calc(100vw - 96px));height:38px;padding:0 7px;border-radius:11px;
+    height:38px;padding:0 6px;border-radius:12px;
   }
 
-  /* ── reopen line / arrow ── */
-  .reopen-line{width:64px;height:4px}
+  /* ── REOPEN LINE / ARROW ── */
+  .reopen-line{
+    position:absolute;top:-8px;left:50%;
+    transform:translateX(-50%) scaleX(.6);
+    width:70px;height:4px;z-index:10;
+    cursor:pointer;pointer-events:none;opacity:0;
+    transform-origin:center;
+    transition:top .4s cubic-bezier(.22,1,.36,1),transform .4s cubic-bezier(.22,1,.36,1),opacity .3s ease;
+  }
   .reopen-line::before{height:4px}
   .reopen-line::after{width:28px;height:18px;margin-left:-14px;top:4px}
+  .header-area.header-closed .reopen-line{top:6px;transform:translateX(-50%) scaleX(1);opacity:1;pointer-events:auto}
+  .header-area:not(.header-closed) .reopen-line{top:-8px;transform:translateX(-50%) scaleX(.6);opacity:0;pointer-events:none}
   .reopen-arrow-icon{width:28px;height:18px;margin-left:-14px;top:4px;padding-bottom:3px}
   .reopen-arrow-icon svg{width:12px;height:7px}
 
-  /* ── CORNER BUTTONS · fixed to viewport, always visible ── */
-  .header-slot-btn,.header-menu-btn{
-    display:flex!important;align-items:center;justify-content:center;
-    position:fixed;top:8px;
-    width:32px;height:32px;min-width:32px;padding:0;
-    border:1px solid rgba(255,255,255,.08);border-radius:9px;
-    background:rgba(255,255,255,.06);
-    color:#a1a1aa;cursor:pointer;z-index:320;overflow:hidden;
-    -webkit-tap-highlight-color:transparent;
-    transition:background .18s ease,color .18s ease,transform .14s ease,border-color .18s ease;
+  /* ── ARROW (OPEN/CLOSE) — DESKTOP-MATCHING BEHAVIOR ──
+     ✅ Transition matches desktop EXACTLY:
+        desktop: transition: background .2s ease, color .2s ease, opacity .4s ease
+     ✅ Same state mapping:
+        hero (big avatar)     → opacity:0, pointer-events:none
+        collapsed welcome     → opacity:1, pointer-events:auto
+        chat mode             → opacity:1, pointer-events:auto
+        header-closed         → display:none */
+  .header-close-btn{
+    display:flex!important;
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    width:28px;height:28px;
+    border:none;background:rgba(255,255,255,.04);border-radius:7px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;color:#a1a1aa;overflow:hidden;z-index:7;
+    /* ✅ EXACT desktop transition */
+    transition:background .2s ease,color .2s ease,opacity .4s ease;
   }
-  .header-slot-btn{left:8px}
-  .header-menu-btn{right:8px}
-  .header-menu-btn svg{width:16px;height:16px;pointer-events:none}
-  .header-menu-btn:hover,.header-menu-btn.active{background:rgba(255,255,255,.11);color:#fff;border-color:rgba(255,255,255,.16)}
-  .header-menu-btn:active{transform:scale(.92)}
-  .header-menu-btn:focus-visible{outline:2px solid rgba(255,255,255,.35);outline-offset:2px}
-  /* left slot: jagah reserved, abhi invisible (future feature) */
-  .header-slot-btn[data-empty="true"]{background:transparent;border-color:transparent;opacity:0;pointer-events:none}
+  .header-close-btn svg{width:12px;height:12px;transition:transform .25s cubic-bezier(.22,1,.36,1);position:relative;z-index:1}
+  .header-close-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+  .header-close-btn:hover svg{transform:translateY(-1.5px)}
+  .header-close-btn:active{transform:translateY(-50%) scale(.94)}
+  .header-close-btn:focus-visible{outline:2px solid rgba(255,255,255,.35);outline-offset:2px}
+  .header-close-btn::before{display:none}   /* tooltip desktop-only */
 
-  .header-close-btn{display:none!important}
+  /* ✅ state mapping — identical to desktop rules */
+  .header-area.header-closed .header-close-btn{display:none!important}
+  .header-area.welcome-header:not(.welcome-collapsed) .header-close-btn{opacity:0;pointer-events:none}
+  .header-area.welcome-header.welcome-collapsed .header-close-btn{opacity:1;pointer-events:auto}
+  .header-area:not(.welcome-header) .header-close-btn{opacity:1;pointer-events:auto}
 
-  /* ── avatar: narrow bar ke centre mein ── */
-  .header-avatar-toggle{left:50%;transform:translate(-50%,-50%);width:26px;height:26px}
-  .header-avatar-toggle:hover{transform:translate(-50%,-50%) scale(1.06)}
-  .header-avatar-toggle:active{transform:translate(-50%,-50%) scale(.94)}
-  .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:50%;transform:translate(-50%,-50%);width:26px;height:26px}
-  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{left:50%;transform:translate(-50%,-50%);width:40px;height:40px}
-  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:hover{transform:translate(-50%,-50%) scale(1.05)}
-  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:active{transform:translate(-50%,-50%) scale(.95)}
-  /* chat mode: title centre leta hai, avatar rest karta hai */
-  .header-area:not(.welcome-header) .header-avatar-toggle{opacity:0;pointer-events:none}
+  /* ── LEFT RESERVED SLOT: invisible placeholder ── */
+  .header-slot-btn{
+    display:flex!important;align-items:center;justify-content:center;
+    position:absolute;top:50%;transform:translateY(-50%);
+    left:6px;
+    width:28px;height:28px;min-width:28px;padding:0;
+    border:none;border-radius:7px;
+    background:transparent;opacity:0;pointer-events:none;
+    z-index:8;overflow:hidden;
+  }
 
+  /* ── header-top-row: positioning context ── */
+  .header-top-row{position:relative;width:100%;height:100%}
+
+  /* ── AVATAR: desktop-matching LEFT side behavior ── */
+  .header-avatar-toggle{
+    position:absolute;
+    top:50%;
+    /* ✅ Default: LEFT side (desktop jaisa) */
+    left:8px;
+    right:auto;
+    transform:translateY(-50%);
+    width:26px;height:26px;
+    background:transparent;border:none;
+    display:flex;align-items:center;justify-content:center;
+    z-index:6;padding:0;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    /* Match desktop's cubic-bezier for position/size */
+    transition:left .5s cubic-bezier(.4,0,.2,1),
+                width .5s cubic-bezier(.4,0,.2,1),
+                height .5s cubic-bezier(.4,0,.2,1),
+                transform .18s ease;
+  }
+  .header-avatar-toggle:hover{transform:translateY(-50%) scale(1.06)}
+  .header-avatar-toggle:active{transform:translateY(-50%) scale(.94)}
+
+  /* ✅ Hero mode: slides to centre, grows */
+  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{
+    left:calc(50% - 20px);
+    right:auto;
+    transform:translateY(-50%);
+    width:40px;height:40px;
+  }
+  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:hover{transform:translateY(-50%) scale(1.05)}
+  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:active{transform:translateY(-50%) scale(.95)}
+
+  /* ✅ Collapsed welcome: slides back to LEFT */
+  .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{
+    left:8px;
+    right:auto;
+    transform:translateY(-50%);
+    width:26px;height:26px;
+  }
+
+  /* Avatar face parts scaled for mobile */
   .header-area.welcome-header:not(.welcome-collapsed) .avatar-hand-left{width:7px;height:7px;right:calc(100% + 3px)}
   .header-area.welcome-header:not(.welcome-collapsed) .avatar-hand-right{width:7px;height:14px;left:calc(100% + 3px);bottom:calc(50% - 3px)}
   .capsule-eye{width:3px;height:7px}
@@ -92,37 +153,50 @@
   .mouth.happy{width:5.5px;height:2px}
   .mouth.excited{width:7px;height:2.5px}
 
-  /* ── title ── */
-  .header-title-area{padding:0 8px;box-sizing:border-box}
-  .single-title-wrap{gap:4px}
-  .single-title-text{font-size:.76rem;max-width:190px}
-  .single-title-input{font-size:.76rem;max-width:190px;min-width:60px}
+  /* ── TITLE AREA: centred ── */
+  .header-title-area{
+    position:absolute;
+    left:50%;top:50%;
+    transform:translate(-50%,-50%);
+    width:calc(100% - 76px);
+    padding:0;
+    box-sizing:border-box;
+    z-index:5;
+    transition:opacity .4s ease;
+  }
+  .header-area.welcome-header:not(.welcome-collapsed) .header-title-area{opacity:0;pointer-events:none}
+  .header-area.welcome-header.welcome-collapsed .header-title-area{opacity:1;pointer-events:auto}
+  .header-area:not(.welcome-header) .header-title-area{opacity:1;pointer-events:auto}
+
+  .single-title-wrap{gap:4px;justify-content:center}
+  .single-title-text{font-size:.76rem;max-width:100%;text-align:center}
+  .single-title-input{font-size:.76rem;max-width:100%;min-width:70px;text-align:center}
   .single-title-menu-btn{opacity:1;width:18px;height:18px}
   .single-title-menu-btn svg{width:12px;height:12px}
 
-  /* ── content ko header band ke neeche rakho ── */
-  .main-area .main-panel.chat-active .chat-screen{padding-top:94px}
+  /* ── Content padding ── */
+  .main-area .main-panel.chat-active .chat-screen{padding-top:50px}
   .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:12px}
 
-  /* ── chat ka apna three-line menu (.mm-wrap) corner button se takraye na ──
-     Header ab top band own karta hai, isliye mm-wrap uske neeche shift. */
-  .mm-wrap{top:88px!important;right:10px!important;z-index:300!important}
+  /* ── CHAT MENU (.mm-wrap) ── */
+  .mm-wrap{top:6px!important;right:14px!important;z-index:200!important}
 
-  .hdr-toast{top:96px;font-size:11.5px;padding:7px 15px}
+  .hdr-toast{top:56px;font-size:11.5px;padding:7px 15px}
 }
 
 @media(max-width:380px){
-  .header-container{width:min(260px,calc(100vw - 84px))!important}
-  .header-area.welcome-header:not(.welcome-collapsed) .header-container{width:min(260px,calc(100vw - 84px))!important}
-  .header-area.welcome-header.welcome-collapsed .header-container{width:min(260px,calc(100vw - 84px))!important}
+  .header-area{width:calc(100% - 32px);max-width:340px;padding:0 4px}
+  .header-container{padding:0 5px;max-width:340px}
 
-  .header-slot-btn,.header-menu-btn{width:30px;height:30px;min-width:30px;top:7px}
-  .header-slot-btn{left:7px}
-  .header-menu-btn{right:7px}
-  .header-area{top:42px}
+  .header-close-btn,.header-slot-btn{width:26px;height:26px;min-width:26px}
+  .header-close-btn{right:4px}
+  .header-slot-btn{left:4px}
 
-  .single-title-text{font-size:.73rem;max-width:150px}
-  .single-title-input{max-width:150px}
-  .mm-wrap{top:84px!important}
-  .main-area .main-panel.chat-active .chat-screen{padding-top:90px}
+  .header-avatar-toggle{left:6px}
+  .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:6px}
+  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{left:calc(50% - 18px);width:36px;height:36px}
+
+  .header-title-area{width:calc(100% - 64px)}
+  .single-title-text{font-size:.73rem}
+  .single-title-input{min-width:60px}
 }
