@@ -1,12 +1,14 @@
 /**
- * sidebar-ui.ts — ASUUM SIDEBAR · PRO EDITION
+ * sidebar-ui.ts — ASUUM SIDEBAR · PRO MINIMAL
  *
  * GUARANTEES
- *  1. Toggle button ALWAYS opens/closes the drawer (capture-phase + delegation).
- *  2. Any click/tap INSIDE the sidebar (chats, three-dots, empty space) NEVER closes it.
- *  3. Drawer closes only via: toggle button, outside content area, Escape.
- *  4. Rename/Delete menu opens ABOVE its own three-dots, inside the drawer bounds.
- *  5. Swipe reacts to real horizontal drags only — a plain tap does nothing.
+ *  1. Toggle button ALWAYS opens/closes (capture-phase, delegated, de-duped).
+ *  2. Clicks inside the drawer NEVER close the drawer.
+ *  3. Drawer closes only via: toggle, outside content, Escape.
+ *  4. Row menu opens ABOVE its own three-dots, inside drawer bounds.
+ *  5. Row menu / bulk menu close on ANY press outside them — sidebar empty space,
+ *     another row, chat screen, welcome screen, anywhere.
+ *  6. Swipe reacts to real horizontal drags only; a plain tap changes nothing.
  */
 import { getAllSessions, onHistoryChange, loadSession, startNewChat, getCurrentSession, renameSession, deleteSession, ChatSession } from '../../chat-screen/services/chat-store';
 import { getAllTabs, closeTab, setActiveWorkspaceFilter, onTabsChange } from '../../header/services/header-tabs-store';
@@ -22,7 +24,7 @@ let selectionMode = false;
 const selectedIds = new Set<string>();
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 let repositionRaf: number | null = null;
-let suppressClickUntil = 0;
+let suppressUntil = 0;
 let lastToggleAt = 0;
 let booted = false;
 
@@ -43,21 +45,17 @@ const ICON_CHAT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ICON_CHECK = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const ICON_TRASH_LG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 
-/* ─────────────────────── HELPERS ─────────────────────── */
+/* ───────────────────────── HELPERS ───────────────────────── */
 function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 function isMobile(): boolean { return window.innerWidth <= MOBILE_BP; }
 function isOpen(): boolean { return !!sidebarEl && sidebarEl.classList.contains('expanded'); }
 function drawerWidth(): number {
-  if (!sidebarEl) return isMobile() ? 280 : 220;
-  const w = Math.round(sidebarEl.getBoundingClientRect().width);
-  return w || (isMobile() ? 280 : 220);
+  if (!sidebarEl) return isMobile() ? 276 : 232;
+  return Math.round(sidebarEl.getBoundingClientRect().width) || (isMobile() ? 276 : 232);
 }
 function clearLongPress(): void { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } }
-function reducedMotion(): boolean {
-  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
-}
 
 /* ───────────────────────── THEME ───────────────────────── */
 function getStoredTheme(): 'dark' | 'light' | null {
@@ -72,7 +70,7 @@ function toggleSidebarTheme(): void {
   try { localStorage.setItem(SIDEBAR_THEME_KEY, next); } catch {}
 }
 
-/* ─────────────────── OUTSIDE SCRIM ─────────────────── */
+/* ───────────────────────── OUTSIDE SCRIM ───────────────────────── */
 function ensureOverlay(): void {
   if (overlayEl) return;
   overlayEl = document.createElement('div');
@@ -99,10 +97,10 @@ function hideOverlay(): void {
   el.style.pointerEvents = 'none';
   setTimeout(() => {
     if (!el.classList.contains('visible')) { el.style.display = 'none'; el.style.opacity = ''; }
-  }, 260);
+  }, 240);
 }
 
-/* ─────────────────── OPEN / CLOSE ─────────────────── */
+/* ───────────────────────── OPEN / CLOSE ───────────────────────── */
 function openSidebar(): void {
   if (!sidebarEl) return;
   sidebarEl.style.transition = '';
@@ -125,7 +123,7 @@ function closeSidebar(): void {
 }
 function toggleSidebar(): void {
   const now = Date.now();
-  if (now - lastToggleAt < 220) return;   // de-dupe pointer/click double fire
+  if (now - lastToggleAt < 200) return;
   lastToggleAt = now;
   isOpen() ? closeSidebar() : openSidebar();
 }
@@ -138,10 +136,10 @@ function syncToggleAria(): void {
   btn.title = open ? 'Collapse sidebar' : 'Expand sidebar';
 }
 
-/* ─────────────────── GESTURES (drag only) ─────────────────── */
+/* ───────────────────────── GESTURES (drag only) ───────────────────────── */
 function setupGestures(): void {
   let tracking = false, dragging = false;
-  let startX = 0, startY = 0, baseTranslate = 0, width = 280;
+  let startX = 0, startY = 0, baseTranslate = 0, width = 276;
   let lastX = 0, lastT = 0, velocity = 0;
 
   const skip = '.chat-input,.input-container,.message-bubble,.chat-scrollbar,.chat-scrollbar-hover-zone,.timeline-system,.mm-wrap,.cr-overlay,.mh-overlay,.sb-toggle-btn';
@@ -152,7 +150,6 @@ function setupGestures(): void {
     if (t.closest(skip)) return;
     const open = isOpen();
     if (open && !sidebarEl.contains(t)) return;
-
     tracking = true; dragging = false;
     startX = lastX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
@@ -193,9 +190,9 @@ function setupGestures(): void {
     if (!tracking) return;
     const wasDragging = dragging;
     tracking = false; dragging = false;
-    if (!sidebarEl || !wasDragging) return;   // ✅ plain tap = no state change
+    if (!sidebarEl || !wasDragging) return;   // plain tap → no state change
 
-    suppressClickUntil = Date.now() + 350;
+    suppressUntil = Date.now() + 320;
     sidebarEl.classList.remove('dragging');
     sidebarEl.style.transition = '';
     sidebarEl.style.transform = '';
@@ -218,14 +215,13 @@ function setupGestures(): void {
 export function initializeSidebarUI(): void {
   if (booted) return;
   booted = true;
-  console.log('📋 Sidebar UI (Pro — toggle guaranteed · menu above dots)');
+  console.log('📋 Sidebar UI (Pro Minimal — tight rhythm · press-anywhere dismiss)');
 
   sidebarEl = document.getElementById('sidebar');
   if (!sidebarEl) { booted = false; return; }
 
   applyTheme(getStoredTheme() || 'dark');
 
-  // Legacy static markup must never steal pointer events
   document.getElementById('sidebarOverlay')?.remove();
   document.querySelector('.sidebar-overlay')?.remove();
   document.getElementById('sidebarCloseBtn')?.remove();
@@ -235,11 +231,10 @@ export function initializeSidebarUI(): void {
   setupGestures();
   syncToggleAria();
 
-  /* ✅ TOGGLE — capture phase, delegated, works even if DOM re-renders */
+  /* ✅ TOGGLE — capture + delegated + keyboard */
   const toggleHandler = (e: Event): void => {
     const t = e.target as HTMLElement | null;
-    const btn = t?.closest?.('#sidebarToggle,.sb-toggle-btn') as HTMLElement | null;
-    if (!btn) return;
+    if (!t?.closest?.('#sidebarToggle,.sb-toggle-btn')) return;
     e.stopPropagation();
     e.preventDefault();
     toggleSidebar();
@@ -252,7 +247,24 @@ export function initializeSidebarUI(): void {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleSidebar(); }
   }, true);
 
-  /* ✅ Everything inside the drawer stops here — cannot reach outside handler */
+  /**
+   * ✅ PRESS-ANYWHERE DISMISS — capture phase.
+   * Runs before every target handler, so stopPropagation inside the drawer
+   * can never block it. Any press outside an open popup closes that popup:
+   * sidebar empty space, another chat row, profile, chat screen, welcome screen.
+   * The popup's own trigger is excluded so its toggle behaviour stays intact.
+   */
+  const dismissOnPress = (e: Event): void => {
+    if (Date.now() < suppressUntil) return;
+    const t = e.target as HTMLElement | null;
+    if (!t) return;
+    if (menuEl && !menuEl.contains(t) && !t.closest?.('.chat-item-menu')) closeMenu();
+    if (bulkMenuEl && !bulkMenuEl.contains(t) && !t.closest?.('.bb-dots')) closeBulkMenu();
+  };
+  document.addEventListener('pointerdown', dismissOnPress, true);
+  document.addEventListener('touchstart', dismissOnPress, { capture: true, passive: true });
+
+  /* Everything inside the drawer stops here — cannot reach the outside handler */
   const guard = (e: Event): void => { e.stopPropagation(); };
   sidebarEl.addEventListener('mousedown', guard);
   sidebarEl.addEventListener('touchstart', guard, { passive: true });
@@ -261,7 +273,6 @@ export function initializeSidebarUI(): void {
   document.getElementById('sbThemeToggle')?.addEventListener('click', (e) => {
     e.stopPropagation(); toggleSidebarTheme();
   });
-
   document.querySelector('.new-chat-btn')?.addEventListener('click', (e) => {
     e.stopPropagation(); handleNewChatFromSidebar();
   });
@@ -270,9 +281,9 @@ export function initializeSidebarUI(): void {
   onHistoryChange(() => { if (!selectionMode) renderAll(); });
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
-  /* ✅ OUTSIDE CLICK — the only place allowed to close the drawer */
+  /* ✅ OUTSIDE CLICK — only place allowed to close the DRAWER */
   document.addEventListener('click', (e: Event) => {
-    if (Date.now() < suppressClickUntil) return;
+    if (Date.now() < suppressUntil) return;
     const target = e.target as HTMLElement;
     if (target.closest?.('#sidebarToggle,.sb-toggle-btn')) return;
     if (sidebarEl && sidebarEl.contains(target)) return;
@@ -280,9 +291,6 @@ export function initializeSidebarUI(): void {
     if (bulkMenuEl && bulkMenuEl.contains(target)) return;
     if (overlayEl && overlayEl.contains(target)) return;
     if (target.closest?.('.cr-overlay,.mh-overlay,.mm-wrap')) return;
-
-    closeMenu();
-    closeBulkMenu();
     if (isOpen()) closeSidebar();
   });
 
@@ -323,7 +331,7 @@ function handleNewChatFromSidebar(): void {
   if (inp) { inp.value = ''; inp.dispatchEvent(new Event('input')); inp.focus(); }
 }
 
-/* ───────────────────── SELECTION MODE ───────────────────── */
+/* ───────────────────────── SELECTION MODE ───────────────────────── */
 function enterSelectionMode(): void { selectionMode = true; selectedIds.clear(); closeMenu(); renderAll(); }
 function exitSelectionMode(): void { selectionMode = false; selectedIds.clear(); closeBulkMenu(); renderAll(); }
 
@@ -357,7 +365,7 @@ function toggleSelectAll(): void {
   closeBulkMenu();
 }
 
-/* ───────────────────── BULK DROPDOWN ───────────────────── */
+/* ───────────────────────── BULK DROPDOWN ───────────────────────── */
 function openBulkMenu(anchor: HTMLElement): void {
   closeBulkMenu(); closeMenu();
   if (!sidebarEl) return;
@@ -370,10 +378,10 @@ function openBulkMenu(anchor: HTMLElement): void {
 
   const host = sidebarEl.getBoundingClientRect();
   const r = anchor.getBoundingClientRect();
-  const mw = bulkMenuEl.offsetWidth || 132;
-  let left = Math.max(8, Math.min(r.right - host.left - mw, host.width - mw - 8));
-  let top = r.bottom - host.top + 4;
-  if (top + 40 > host.height - 8) top = r.top - host.top - 40;
+  const mw = bulkMenuEl.offsetWidth || 130;
+  const left = Math.max(7, Math.min(r.right - host.left - mw, host.width - mw - 7));
+  let top = r.bottom - host.top + 3;
+  if (top + 38 > host.height - 7) top = r.top - host.top - 38;
   bulkMenuEl.style.left = `${left}px`;
   bulkMenuEl.style.top = `${top}px`;
   requestAnimationFrame(() => bulkMenuEl?.classList.add('visible'));
@@ -383,7 +391,7 @@ function openBulkMenu(anchor: HTMLElement): void {
 }
 function closeBulkMenu(): void { if (bulkMenuEl) { bulkMenuEl.remove(); bulkMenuEl = null; } }
 
-/* ───────────────────── DELETE CONFIRM ───────────────────── */
+/* ───────────────────────── DELETE CONFIRM ───────────────────────── */
 function showDeleteConfirmation(): void {
   const count = selectedIds.size;
   if (count === 0) return;
@@ -539,7 +547,7 @@ function wireEvents(): void {
   });
 }
 
-/* ─────────── ROW MENU — always ABOVE the three-dots ─────────── */
+/* ─────────── ROW MENU · always ABOVE its dots ─────────── */
 function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: string): void {
   closeMenu(); closeBulkMenu();
   if (!sidebarEl) return;
@@ -571,25 +579,21 @@ function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: stri
   });
 }
 
-/** ✅ Menu sits ABOVE its own dots button, right-aligned, inside drawer bounds. */
 function positionMenu(): void {
   if (!menuEl || !menuAnchor || !sidebarEl) return;
   if (!document.body.contains(menuAnchor)) { closeMenu(); return; }
 
   const host = sidebarEl.getBoundingClientRect();
   const r = menuAnchor.getBoundingClientRect();
-  const mw = menuEl.offsetWidth || 150;
-  const mh = menuEl.offsetHeight || 78;
-  const pad = 8;
-  const gap = 4;
+  const mw = menuEl.offsetWidth || 148;
+  const mh = menuEl.offsetHeight || 72;
+  const pad = 7, gap = 3;
 
   let left = r.right - host.left - mw;
   left = Math.max(pad, Math.min(left, host.width - mw - pad));
 
-  // Primary: ABOVE the dots
-  let top = r.top - host.top - mh - gap;
-  // Only if there is literally no room above, drop below
-  if (top < pad) top = r.bottom - host.top + gap;
+  let top = r.top - host.top - mh - gap;          // ABOVE the dots
+  if (top < pad) top = r.bottom - host.top + gap; // fallback only if no room
   top = Math.max(pad, Math.min(top, host.height - mh - pad));
 
   menuEl.style.left = `${left}px`;
