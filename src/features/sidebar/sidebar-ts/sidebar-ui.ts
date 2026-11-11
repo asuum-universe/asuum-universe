@@ -1,19 +1,39 @@
-/** sidebar-ui.ts — Inside=Ignore, Outside=Close */
+/**
+ * sidebar-ui.ts — ASUUM SIDEBAR · PRO EDITION
+ *
+ * GUARANTEES
+ *  1. Toggle button ALWAYS opens/closes the drawer (capture-phase + delegation).
+ *  2. Any click/tap INSIDE the sidebar (chats, three-dots, empty space) NEVER closes it.
+ *  3. Drawer closes only via: toggle button, outside content area, Escape.
+ *  4. Rename/Delete menu opens ABOVE its own three-dots, inside the drawer bounds.
+ *  5. Swipe reacts to real horizontal drags only — a plain tap does nothing.
+ */
 import { getAllSessions, onHistoryChange, loadSession, startNewChat, getCurrentSession, renameSession, deleteSession, ChatSession } from '../../chat-screen/services/chat-store';
-import { getAllTabs, closeTab, getActiveTab, setActiveWorkspaceFilter, onTabsChange } from '../../header/services/header-tabs-store';
+import { getAllTabs, closeTab, setActiveWorkspaceFilter, onTabsChange } from '../../header/services/header-tabs-store';
 import { setExplicitNewTabClicked, clearInjectedColor } from '../../welcome-screen/welcome-ts/welcome-ui';
 
+/* ───────────────────────── STATE ───────────────────────── */
+let sidebarEl: HTMLElement | null = null;
+let overlayEl: HTMLElement | null = null;
 let menuEl: HTMLElement | null = null;
+let menuAnchor: HTMLElement | null = null;
+let bulkMenuEl: HTMLElement | null = null;
 let selectionMode = false;
 const selectedIds = new Set<string>();
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-let bulkMenuEl: HTMLElement | null = null;
-let mobileOverlayEl: HTMLElement | null = null;
+let repositionRaf: number | null = null;
+let suppressClickUntil = 0;
+let lastToggleAt = 0;
+let booted = false;
 
 const SIDEBAR_THEME_KEY = 'asuum_sidebar_theme';
-const SIDEBAR_WIDTH = 280;
-const OPEN_THRESHOLD = 0.4;
+const MOBILE_BP = 768;
+const OPEN_RATIO = 0.35;
+const FLICK_VELOCITY = 0.45;
+const DRAG_START_PX = 10;
+const VERTICAL_CANCEL_PX = 14;
 
+/* ───────────────────────── ICONS ───────────────────────── */
 const ICON_DOTS = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>`;
 const ICON_RENAME = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
 const ICON_DELETE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
@@ -23,315 +43,404 @@ const ICON_CHAT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ICON_CHECK = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
 const ICON_TRASH_LG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 
-function getStoredSidebarTheme(): 'dark' | 'light' | null {
+/* ─────────────────────── HELPERS ─────────────────────── */
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function isMobile(): boolean { return window.innerWidth <= MOBILE_BP; }
+function isOpen(): boolean { return !!sidebarEl && sidebarEl.classList.contains('expanded'); }
+function drawerWidth(): number {
+  if (!sidebarEl) return isMobile() ? 280 : 220;
+  const w = Math.round(sidebarEl.getBoundingClientRect().width);
+  return w || (isMobile() ? 280 : 220);
+}
+function clearLongPress(): void { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } }
+function reducedMotion(): boolean {
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+}
+
+/* ───────────────────────── THEME ───────────────────────── */
+function getStoredTheme(): 'dark' | 'light' | null {
   try { return localStorage.getItem(SIDEBAR_THEME_KEY) as 'dark' | 'light' | null; } catch { return null; }
 }
-function applySidebarTheme(theme: 'dark' | 'light'): void {
-  if (theme === 'light') document.body.classList.add('sidebar-light');
-  else document.body.classList.remove('sidebar-light');
+function applyTheme(theme: 'dark' | 'light'): void {
+  document.body.classList.toggle('sidebar-light', theme === 'light');
 }
-function initSidebarTheme(): void { applySidebarTheme(getStoredSidebarTheme() || 'dark'); }
 function toggleSidebarTheme(): void {
-  const isLight = document.body.classList.contains('sidebar-light');
-  const newTheme = isLight ? 'dark' : 'light';
-  applySidebarTheme(newTheme);
-  try { localStorage.setItem(SIDEBAR_THEME_KEY, newTheme); } catch {}
-}
-function isMobile(): boolean { return window.innerWidth <= 768; }
-
-function ensureMobileOverlay(): void {
-  if (mobileOverlayEl) return;
-  mobileOverlayEl = document.createElement('div');
-  mobileOverlayEl.className = 'sidebar-mobile-overlay';
-  mobileOverlayEl.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    closeMobileSidebar();
-  });
-  document.body.appendChild(mobileOverlayEl);
+  const next = document.body.classList.contains('sidebar-light') ? 'dark' : 'light';
+  applyTheme(next);
+  try { localStorage.setItem(SIDEBAR_THEME_KEY, next); } catch {}
 }
 
-function showMobileOverlay(): void {
-  ensureMobileOverlay();
-  mobileOverlayEl!.style.display = 'block';
-  requestAnimationFrame(() => mobileOverlayEl?.classList.add('visible'));
+/* ─────────────────── OUTSIDE SCRIM ─────────────────── */
+function ensureOverlay(): void {
+  if (overlayEl) return;
+  overlayEl = document.createElement('div');
+  overlayEl.className = 'sidebar-mobile-overlay';
+  overlayEl.setAttribute('aria-hidden', 'true');
+  overlayEl.addEventListener('click', (e) => { e.stopPropagation(); closeSidebar(); });
+  document.body.appendChild(overlayEl);
 }
-
-function hideMobileOverlay(): void {
-  if (!mobileOverlayEl) return;
-  mobileOverlayEl.classList.remove('visible');
+function syncOverlayPosition(): void {
+  if (overlayEl) overlayEl.style.left = `${drawerWidth()}px`;
+}
+function showOverlay(): void {
+  ensureOverlay();
+  syncOverlayPosition();
+  overlayEl!.style.display = 'block';
+  overlayEl!.style.opacity = '';
+  overlayEl!.style.pointerEvents = '';
+  requestAnimationFrame(() => overlayEl?.classList.add('visible'));
+}
+function hideOverlay(): void {
+  if (!overlayEl) return;
+  const el = overlayEl;
+  el.classList.remove('visible');
+  el.style.pointerEvents = 'none';
   setTimeout(() => {
-    if (mobileOverlayEl && !mobileOverlayEl.classList.contains('visible')) {
-      mobileOverlayEl.style.display = 'none';
-    }
-  }, 250);
+    if (!el.classList.contains('visible')) { el.style.display = 'none'; el.style.opacity = ''; }
+  }, 260);
 }
 
-function closeMobileSidebar(): void {
-  const sidebar = document.getElementById('sidebar');
-  if (!sidebar) return;
-  sidebar.style.transition = '';
-  sidebar.classList.remove('expanded');
-  sidebar.style.transform = '';
-  hideMobileOverlay();
+/* ─────────────────── OPEN / CLOSE ─────────────────── */
+function openSidebar(): void {
+  if (!sidebarEl) return;
+  sidebarEl.style.transition = '';
+  sidebarEl.style.transform = '';
+  sidebarEl.classList.remove('dragging');
+  sidebarEl.classList.add('expanded');
+  syncToggleAria();
+  if (isMobile()) showOverlay(); else hideOverlay();
+}
+function closeSidebar(): void {
+  if (!sidebarEl) return;
   closeMenu();
   closeBulkMenu();
+  if (selectionMode) { selectionMode = false; selectedIds.clear(); renderAll(); }
+  sidebarEl.style.transition = '';
+  sidebarEl.style.transform = '';
+  sidebarEl.classList.remove('dragging', 'expanded');
+  syncToggleAria();
+  hideOverlay();
+}
+function toggleSidebar(): void {
+  const now = Date.now();
+  if (now - lastToggleAt < 220) return;   // de-dupe pointer/click double fire
+  lastToggleAt = now;
+  isOpen() ? closeSidebar() : openSidebar();
+}
+function syncToggleAria(): void {
+  const btn = document.getElementById('sidebarToggle');
+  if (!btn) return;
+  const open = isOpen();
+  btn.setAttribute('aria-expanded', String(open));
+  btn.setAttribute('aria-label', open ? 'Collapse sidebar' : 'Expand sidebar');
+  btn.title = open ? 'Collapse sidebar' : 'Expand sidebar';
 }
 
-function openSidebar(): void {
-  const sidebar = document.getElementById('sidebar');
-  if (!sidebar) return;
-  sidebar.classList.add('expanded');
-  if (isMobile()) showMobileOverlay();
-}
+/* ─────────────────── GESTURES (drag only) ─────────────────── */
+function setupGestures(): void {
+  let tracking = false, dragging = false;
+  let startX = 0, startY = 0, baseTranslate = 0, width = 280;
+  let lastX = 0, lastT = 0, velocity = 0;
 
-function setupTouchSwipe(): void {
-  let touchStartX = 0, touchStartY = 0, isDragging = false, currentTranslateX = -SIDEBAR_WIDTH;
-  const VERTICAL_MAX = 60;
+  const skip = '.chat-input,.input-container,.message-bubble,.chat-scrollbar,.chat-scrollbar-hover-zone,.timeline-system,.mm-wrap,.cr-overlay,.mh-overlay,.sb-toggle-btn';
 
   document.addEventListener('touchstart', (e: TouchEvent) => {
-    if (!isMobile()) return;
-    const tgt = e.target as HTMLElement;
-    if (tgt.closest('.chat-input') || tgt.closest('.message-bubble') || tgt.closest('.chat-scrollbar') || tgt.closest('.chat-scrollbar-hover-zone')) return;
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    isDragging = true;
-    currentTranslateX = -SIDEBAR_WIDTH;
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.style.transition = 'none';
+    if (!isMobile() || !sidebarEl || e.touches.length !== 1) return;
+    const t = e.target as HTMLElement;
+    if (t.closest(skip)) return;
+    const open = isOpen();
+    if (open && !sidebarEl.contains(t)) return;
+
+    tracking = true; dragging = false;
+    startX = lastX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    lastT = performance.now();
+    velocity = 0;
+    width = drawerWidth();
+    baseTranslate = open ? 0 : -width;
   }, { passive: true });
 
   document.addEventListener('touchmove', (e: TouchEvent) => {
-    if (!isDragging || !isMobile()) return;
-    const dx = e.touches[0].clientX - touchStartX;
-    const dy = Math.abs(e.touches[0].clientY - touchStartY);
-    if (dy > VERTICAL_MAX && dy > Math.abs(dx)) { isDragging = false; const s = document.getElementById('sidebar'); if (s) s.style.transition = ''; return; }
-    if (dx <= 0) return;
-    currentTranslateX = Math.max(-SIDEBAR_WIDTH, Math.min(0, -SIDEBAR_WIDTH + dx));
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.style.transform = `translateX(${currentTranslateX}px)`;
-    const progress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
-    ensureMobileOverlay();
-    if (mobileOverlayEl) {
-      mobileOverlayEl.style.display = 'block';
-      mobileOverlayEl.style.opacity = String(progress * 0.3);
-      mobileOverlayEl.style.pointerEvents = 'none';
+    if (!tracking || !sidebarEl) return;
+    const x = e.touches[0].clientX, y = e.touches[0].clientY;
+    const dx = x - startX, dy = Math.abs(y - startY);
+
+    if (!dragging) {
+      if (dy > VERTICAL_CANCEL_PX && dy > Math.abs(dx)) { tracking = false; return; }
+      if (Math.abs(dx) < DRAG_START_PX) return;
+      if (Math.abs(dx) <= dy) { tracking = false; return; }
+      dragging = true;
+      closeMenu(); closeBulkMenu();
+      sidebarEl.classList.add('dragging');
+      ensureOverlay(); syncOverlayPosition();
+      overlayEl!.style.display = 'block';
+      overlayEl!.classList.remove('visible');
+      overlayEl!.style.pointerEvents = 'none';
     }
+
+    const now = performance.now();
+    if (now > lastT) velocity = (x - lastX) / (now - lastT);
+    lastX = x; lastT = now;
+
+    const translate = Math.max(-width, Math.min(0, baseTranslate + dx));
+    sidebarEl.style.transform = `translateX(${translate}px)`;
+    if (overlayEl) overlayEl.style.opacity = String(((translate + width) / width) * 0.32);
   }, { passive: true });
 
-  document.addEventListener('touchend', () => {
-    if (!isDragging || !isMobile()) return;
-    isDragging = false;
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-    sidebar.style.transition = '';
-    const openProgress = (currentTranslateX + SIDEBAR_WIDTH) / SIDEBAR_WIDTH;
-    if (openProgress >= OPEN_THRESHOLD) {
-      sidebar.classList.add('expanded');
-      sidebar.style.transform = '';
-      showMobileOverlay();
-    } else {
-      sidebar.classList.remove('expanded');
-      sidebar.style.transform = '';
-      hideMobileOverlay();
-    }
-  }, { passive: true });
+  const finish = (): void => {
+    if (!tracking) return;
+    const wasDragging = dragging;
+    tracking = false; dragging = false;
+    if (!sidebarEl || !wasDragging) return;   // ✅ plain tap = no state change
+
+    suppressClickUntil = Date.now() + 350;
+    sidebarEl.classList.remove('dragging');
+    sidebarEl.style.transition = '';
+    sidebarEl.style.transform = '';
+
+    const m = getComputedStyle(sidebarEl).transform.match(/-?\d+\.?\d*/g);
+    const current = m && m.length >= 6 ? parseFloat(m[4]) : (isOpen() ? 0 : -width);
+    const progress = Math.max(0, Math.min(1, (current + width) / width));
+    const shouldOpen = velocity > FLICK_VELOCITY ? true
+      : velocity < -FLICK_VELOCITY ? false
+      : progress >= OPEN_RATIO;
+
+    shouldOpen ? openSidebar() : closeSidebar();
+  };
+
+  document.addEventListener('touchend', finish, { passive: true });
+  document.addEventListener('touchcancel', finish, { passive: true });
 }
 
+/* ───────────────────────── INIT ───────────────────────── */
 export function initializeSidebarUI(): void {
-  console.log('📋 Sidebar UI (Inside=Ignore, Outside=Close)');
-  initSidebarTheme();
-  setupTouchSwipe();
+  if (booted) return;
+  booted = true;
+  console.log('📋 Sidebar UI (Pro — toggle guaranteed · menu above dots)');
 
-  // Kill static overlays permanently
+  sidebarEl = document.getElementById('sidebar');
+  if (!sidebarEl) { booted = false; return; }
+
+  applyTheme(getStoredTheme() || 'dark');
+
+  // Legacy static markup must never steal pointer events
   document.getElementById('sidebarOverlay')?.remove();
   document.querySelector('.sidebar-overlay')?.remove();
   document.getElementById('sidebarCloseBtn')?.remove();
   document.querySelector('.sidebar-close-btn')?.remove();
 
-  // Toggle button opens/closes sidebar
-  const toggleBtn = document.getElementById('sidebarToggle');
-  if (toggleBtn) {
-    toggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      const sidebar = document.getElementById('sidebar');
-      if (!sidebar) return;
-      if (sidebar.classList.contains('expanded')) closeMobileSidebar();
-      else openSidebar();
-    });
-  }
+  ensureOverlay();
+  setupGestures();
+  syncToggleAria();
 
-  const sbThemeToggle = document.getElementById('sbThemeToggle');
-  if (sbThemeToggle) sbThemeToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebarTheme(); });
+  /* ✅ TOGGLE — capture phase, delegated, works even if DOM re-renders */
+  const toggleHandler = (e: Event): void => {
+    const t = e.target as HTMLElement | null;
+    const btn = t?.closest?.('#sidebarToggle,.sb-toggle-btn') as HTMLElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    e.preventDefault();
+    toggleSidebar();
+  };
+  document.addEventListener('pointerup', toggleHandler, true);
+  document.addEventListener('click', toggleHandler, true);
+  document.addEventListener('keydown', (e: KeyboardEvent) => {
+    const t = e.target as HTMLElement | null;
+    if (!t?.closest?.('#sidebarToggle,.sb-toggle-btn')) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleSidebar(); }
+  }, true);
 
-  const newChatBtn = document.querySelector('.new-chat-btn');
-  if (newChatBtn) newChatBtn.addEventListener('click', (e) => { e.stopPropagation(); handleNewChatFromSidebar(); });
+  /* ✅ Everything inside the drawer stops here — cannot reach outside handler */
+  const guard = (e: Event): void => { e.stopPropagation(); };
+  sidebarEl.addEventListener('mousedown', guard);
+  sidebarEl.addEventListener('touchstart', guard, { passive: true });
+  sidebarEl.addEventListener('click', guard);
+
+  document.getElementById('sbThemeToggle')?.addEventListener('click', (e) => {
+    e.stopPropagation(); toggleSidebarTheme();
+  });
+
+  document.querySelector('.new-chat-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation(); handleNewChatFromSidebar();
+  });
 
   renderAll();
   onHistoryChange(() => { if (!selectionMode) renderAll(); });
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
-  /**
-   * GLOBAL CLICK HANDLER — Bubble phase
-   * Inside sidebar/menu/bulk → IGNORE
-   * Outside → Close menus only (NOT sidebar)
-   */
+  /* ✅ OUTSIDE CLICK — the only place allowed to close the drawer */
   document.addEventListener('click', (e: Event) => {
+    if (Date.now() < suppressClickUntil) return;
     const target = e.target as HTMLElement;
-    const sidebar = document.getElementById('sidebar');
-
-    if (sidebar && sidebar.contains(target)) return;
+    if (target.closest?.('#sidebarToggle,.sb-toggle-btn')) return;
+    if (sidebarEl && sidebarEl.contains(target)) return;
     if (menuEl && menuEl.contains(target)) return;
     if (bulkMenuEl && bulkMenuEl.contains(target)) return;
+    if (overlayEl && overlayEl.contains(target)) return;
+    if (target.closest?.('.cr-overlay,.mh-overlay,.mm-wrap')) return;
 
-    if (menuEl) closeMenu();
-    if (bulkMenuEl) closeBulkMenu();
+    closeMenu();
+    closeBulkMenu();
+    if (isOpen()) closeSidebar();
   });
 
   document.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      if (selectionMode) exitSelectionMode();
-      else closeMenu();
-      if (isMobile()) closeMobileSidebar();
-    }
+    if (e.key !== 'Escape') return;
+    if (menuEl) { closeMenu(); return; }
+    if (bulkMenuEl) { closeBulkMenu(); return; }
+    if (selectionMode) { exitSelectionMode(); return; }
+    if (isOpen()) closeSidebar();
+  });
+
+  const scheduleReposition = (): void => {
+    if (!menuEl || !menuAnchor || repositionRaf !== null) return;
+    repositionRaf = requestAnimationFrame(() => { repositionRaf = null; positionMenu(); });
+  };
+  document.querySelector('.chat-list-area')?.addEventListener('scroll', scheduleReposition, { passive: true });
+
+  window.addEventListener('resize', () => {
+    syncOverlayPosition();
+    if (!isMobile()) hideOverlay();
+    else if (isOpen()) showOverlay();
+    scheduleReposition();
   });
 }
 
+/* ───────────────────────── NEW CHAT ───────────────────────── */
 function handleNewChatFromSidebar(): void {
   if (selectionMode) exitSelectionMode();
-  if (isMobile()) closeMobileSidebar();
+  closeSidebar();
   startNewChat();
   setExplicitNewTabClicked(false);
   clearInjectedColor();
   setActiveWorkspaceFilter(null);
   document.dispatchEvent(new Event('asuum:welcome-mode'));
   const panel = document.getElementById('mainPanel');
-  if (panel) { panel.classList.remove('chat-active'); panel.classList.remove('has-tabs'); panel.classList.remove('new-tab-mode'); }
+  if (panel) panel.classList.remove('chat-active', 'has-tabs', 'new-tab-mode');
   const inp = document.querySelector('.chat-input') as HTMLTextAreaElement | null;
   if (inp) { inp.value = ''; inp.dispatchEvent(new Event('input')); inp.focus(); }
 }
 
-function enterSelectionMode(): void { selectionMode = true; selectedIds.clear(); renderAll(); }
+/* ───────────────────── SELECTION MODE ───────────────────── */
+function enterSelectionMode(): void { selectionMode = true; selectedIds.clear(); closeMenu(); renderAll(); }
 function exitSelectionMode(): void { selectionMode = false; selectedIds.clear(); closeBulkMenu(); renderAll(); }
 
 function toggleSelect(id: string): void {
   if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
   updateSelectionUI();
 }
-
 function updateSelectionUI(): void {
   const content = document.querySelector('.sidebar-content');
   if (!content) return;
   content.querySelectorAll('.chat-item').forEach(item => {
     const id = (item as HTMLElement).dataset.id || '';
-    const cb = item.querySelector('.select-circle') as HTMLElement;
-    if (cb) {
-      if (selectedIds.has(id)) { cb.classList.add('checked'); cb.innerHTML = ICON_CHECK; }
-      else { cb.classList.remove('checked'); cb.innerHTML = ''; }
-    }
-    item.classList.toggle('selected', selectedIds.has(id));
+    const cb = item.querySelector('.select-circle') as HTMLElement | null;
+    const on = selectedIds.has(id);
+    if (cb) { cb.classList.toggle('checked', on); cb.innerHTML = on ? ICON_CHECK : ''; }
+    item.classList.toggle('selected', on);
   });
   const countEl = document.getElementById('bulkCount');
   const deleteBtn = document.getElementById('bulkDeleteBtn');
   if (countEl) countEl.textContent = `${selectedIds.size}`;
   if (deleteBtn) {
-    deleteBtn.style.opacity = selectedIds.size > 0 ? '1' : '0.3';
+    deleteBtn.style.opacity = selectedIds.size > 0 ? '1' : '0.32';
     deleteBtn.style.pointerEvents = selectedIds.size > 0 ? 'auto' : 'none';
   }
 }
-
 function toggleSelectAll(): void {
-  const content = document.querySelector('.sidebar-content');
-  if (!content) return;
-  const allIds = Array.from(content.querySelectorAll('.chat-item')).map(el => (el as HTMLElement).dataset.id || '');
-  const allSelected = allIds.length > 0 && allIds.every(id => selectedIds.has(id));
-  if (allSelected) selectedIds.clear();
-  else allIds.forEach(id => { if (id) selectedIds.add(id); });
+  const ids = Array.from(document.querySelectorAll('.chat-item')).map(el => (el as HTMLElement).dataset.id || '');
+  const all = ids.length > 0 && ids.every(id => selectedIds.has(id));
+  if (all) selectedIds.clear(); else ids.forEach(id => { if (id) selectedIds.add(id); });
   updateSelectionUI();
   closeBulkMenu();
 }
 
+/* ───────────────────── BULK DROPDOWN ───────────────────── */
 function openBulkMenu(anchor: HTMLElement): void {
-  closeBulkMenu();
+  closeBulkMenu(); closeMenu();
+  if (!sidebarEl) return;
   bulkMenuEl = document.createElement('div');
   bulkMenuEl.className = 'bulk-dropdown';
-  const allItems = document.querySelectorAll('.chat-item');
-  const allSelected = allItems.length > 0 && selectedIds.size === allItems.length;
-  bulkMenuEl.innerHTML = `<button class="bulk-dropdown-item" id="bulkSelectAllOpt">${allSelected ? 'Deselect All' : 'Select All'}</button>`;
-  document.body.appendChild(bulkMenuEl);
-  const r = anchor.getBoundingClientRect();
-  let top = r.bottom + 4;
-  let left = r.right - (bulkMenuEl.offsetWidth || 120);
-  if (left < 8) left = 8;
-  if (top + 40 > window.innerHeight) top = r.top - 40;
-  bulkMenuEl.style.top = `${top}px`;
-  bulkMenuEl.style.left = `${left}px`;
-  requestAnimationFrame(() => bulkMenuEl?.classList.add('visible'));
-  bulkMenuEl.querySelector('#bulkSelectAllOpt')?.addEventListener('click', (e) => { e.stopPropagation(); toggleSelectAll(); });
-}
+  const items = document.querySelectorAll('.chat-item');
+  const all = items.length > 0 && selectedIds.size === items.length;
+  bulkMenuEl.innerHTML = `<button class="bulk-dropdown-item" type="button">${all ? 'Deselect All' : 'Select All'}</button>`;
+  sidebarEl.appendChild(bulkMenuEl);
 
+  const host = sidebarEl.getBoundingClientRect();
+  const r = anchor.getBoundingClientRect();
+  const mw = bulkMenuEl.offsetWidth || 132;
+  let left = Math.max(8, Math.min(r.right - host.left - mw, host.width - mw - 8));
+  let top = r.bottom - host.top + 4;
+  if (top + 40 > host.height - 8) top = r.top - host.top - 40;
+  bulkMenuEl.style.left = `${left}px`;
+  bulkMenuEl.style.top = `${top}px`;
+  requestAnimationFrame(() => bulkMenuEl?.classList.add('visible'));
+
+  bulkMenuEl.addEventListener('click', (e) => e.stopPropagation());
+  bulkMenuEl.querySelector('.bulk-dropdown-item')?.addEventListener('click', (e) => { e.stopPropagation(); toggleSelectAll(); });
+}
 function closeBulkMenu(): void { if (bulkMenuEl) { bulkMenuEl.remove(); bulkMenuEl = null; } }
 
+/* ───────────────────── DELETE CONFIRM ───────────────────── */
 function showDeleteConfirmation(): void {
   const count = selectedIds.size;
   if (count === 0) return;
   closeBulkMenu();
   const overlay = document.createElement('div');
   overlay.className = 'bulk-delete-overlay';
-  overlay.innerHTML = `<div class="bulk-delete-modal"><div class="bdm-icon-wrap">${ICON_TRASH_LG}</div><h3 class="bdm-title">Delete ${count} Chat${count > 1 ? 's' : ''}?</h3><p class="bdm-desc">This action is permanent and cannot be undone.</p><div class="bdm-actions"><button class="bdm-btn bdm-cancel">Cancel</button><button class="bdm-btn bdm-confirm">Delete Permanently</button></div></div>`;
+  overlay.innerHTML = `<div class="bulk-delete-modal"><div class="bdm-icon-wrap">${ICON_TRASH_LG}</div><h3 class="bdm-title">Delete ${count} Chat${count > 1 ? 's' : ''}?</h3><p class="bdm-desc">This action is permanent and cannot be undone.</p><div class="bdm-actions"><button class="bdm-btn bdm-cancel" type="button">Cancel</button><button class="bdm-btn bdm-confirm" type="button">Delete Permanently</button></div></div>`;
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add('visible'));
-  overlay.querySelector('.bdm-cancel')?.addEventListener('click', () => closeModalOverlay(overlay));
-  overlay.querySelector('.bdm-confirm')?.addEventListener('click', () => { executeBulkDelete(); closeModalOverlay(overlay); });
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModalOverlay(overlay); });
-  const escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') { closeModalOverlay(overlay); document.removeEventListener('keydown', escHandler); } };
-  document.addEventListener('keydown', escHandler);
+
+  const dismiss = (): void => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); };
+  overlay.addEventListener('click', (e) => { e.stopPropagation(); if (e.target === overlay) dismiss(); });
+  overlay.querySelector('.bdm-cancel')?.addEventListener('click', (e) => { e.stopPropagation(); dismiss(); });
+  overlay.querySelector('.bdm-confirm')?.addEventListener('click', (e) => { e.stopPropagation(); executeBulkDelete(); dismiss(); });
+  const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') { dismiss(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
 }
-
-function closeModalOverlay(overlay: HTMLElement): void { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 200); }
-
 function executeBulkDelete(): void {
-  const idsToDelete = Array.from(selectedIds);
-  idsToDelete.forEach(id => {
+  Array.from(selectedIds).forEach(id => {
     getAllTabs().filter(t => t.sessionId === id).forEach(tab => closeTab(tab.id));
     deleteSession(id);
   });
   exitSelectionMode();
   renderAll();
+  if (!getCurrentSession()) document.dispatchEvent(new Event('asuum:welcome-mode'));
 }
 
+/* ───────────────────────── RENDER ───────────────────────── */
 function renderAll(): void {
   const content = document.querySelector('.sidebar-content');
   if (!content) return;
-  const allSessions = getAllSessions();
-  const sorted = [...allSessions].sort((a, b) => b.updatedAt - a.updatedAt);
+  closeMenu();
+
+  const sorted = [...getAllSessions()].sort((a, b) => b.updatedAt - a.updatedAt);
   let html = '';
   if (selectionMode) {
-    html += `<div class="bulk-bar-sticky"><button class="bb-cancel" id="bulkCancelBtn">Cancel</button><span class="bb-count" id="bulkCount">${selectedIds.size}</span><button class="bb-delete" id="bulkDeleteBtn" title="Delete selected">${ICON_DELETE}<span class="bb-delete-text">Delete</span></button><button class="bb-dots" id="bulkDotsBtn" title="More options">${ICON_DOTS}</button></div>`;
+    html += `<div class="bulk-bar-sticky"><button class="bb-cancel" id="bulkCancelBtn" type="button">Cancel</button><span class="bb-count" id="bulkCount">${selectedIds.size}</span><button class="bb-delete" id="bulkDeleteBtn" type="button" title="Delete selected">${ICON_DELETE}<span class="bb-delete-text">Delete</span></button><button class="bb-dots" id="bulkDotsBtn" type="button" title="More options">${ICON_DOTS}</button></div>`;
   } else {
-    html += `<div class="bulk-bar-sticky bulk-bar-normal"><span class="section-label">All Chats</span></div>`;
+    html += `<div class="bulk-bar-sticky bulk-bar-normal"><span class="section-label">All Chats</span><span class="section-count">${sorted.length}</span></div>`;
   }
   html += `<div class="chat-list-area">`;
   if (sorted.length > 0) {
-    const groups = groupByDate(sorted);
-    for (const group of groups) {
+    for (const group of groupByDate(sorted)) {
       html += `<div class="chat-group"><div class="chat-group-label">${group.label}</div>`;
       for (const s of group.items) {
         const active = !selectionMode && s.id === getCurrentSession()?.id ? ' active' : '';
-        const sel = selectionMode && selectedIds.has(s.id) ? ' selected' : '';
-        const checkIcon = selectionMode && selectedIds.has(s.id) ? ICON_CHECK : '';
-        const checkedClass = selectionMode && selectedIds.has(s.id) ? ' checked' : '';
+        const checked = selectionMode && selectedIds.has(s.id);
         if (selectionMode) {
-          html += `<div class="chat-item${sel}" data-id="${s.id}"><span class="select-circle${checkedClass}">${checkIcon}</span><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span></div>`;
+          html += `<div class="chat-item${checked ? ' selected' : ''}" data-id="${esc(s.id)}"><span class="select-circle${checked ? ' checked' : ''}">${checked ? ICON_CHECK : ''}</span><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span></div>`;
         } else {
-          html += `<div class="chat-item${active}" data-id="${s.id}"><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span><button class="chat-item-menu" title="More options">${ICON_DOTS}</button></div>`;
+          html += `<div class="chat-item${active}" data-id="${esc(s.id)}"><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span><button class="chat-item-menu" type="button" title="Chat options" aria-label="Chat options">${ICON_DOTS}</button></div>`;
         }
       }
       html += `</div>`;
     }
   } else {
-    html += `<div class="sidebar-empty-state"><span>No chats yet</span></div>`;
+    html += `<div class="sidebar-empty-state"><span class="ses-icon">${ICON_CHAT}</span><span>No chats yet</span><span class="ses-hint">Start a new conversation</span></div>`;
   }
   html += `</div>`;
   content.innerHTML = html;
@@ -341,98 +450,171 @@ function renderAll(): void {
 
 function groupByDate(sessions: ChatSession[]): Array<{ label: string; items: ChatSession[] }> {
   const t0 = new Date(); t0.setHours(0, 0, 0, 0); const t = t0.getTime();
-  const b = [{ label: 'Today', items: [] as ChatSession[] }, { label: 'Yesterday', items: [] as ChatSession[] }, { label: 'Previous 7 Days', items: [] as ChatSession[] }, { label: 'Previous 30 Days', items: [] as ChatSession[] }, { label: 'Older', items: [] as ChatSession[] }];
+  const buckets = [
+    { label: 'Today', items: [] as ChatSession[] },
+    { label: 'Yesterday', items: [] as ChatSession[] },
+    { label: 'Previous 7 Days', items: [] as ChatSession[] },
+    { label: 'Previous 30 Days', items: [] as ChatSession[] },
+    { label: 'Older', items: [] as ChatSession[] }
+  ];
   for (const s of sessions) {
-    if (s.updatedAt >= t) b[0].items.push(s);
-    else if (s.updatedAt >= t - 86400000) b[1].items.push(s);
-    else if (s.updatedAt >= t - 7 * 86400000) b[2].items.push(s);
-    else if (s.updatedAt >= t - 30 * 86400000) b[3].items.push(s);
-    else b[4].items.push(s);
+    if (s.updatedAt >= t) buckets[0].items.push(s);
+    else if (s.updatedAt >= t - 86400000) buckets[1].items.push(s);
+    else if (s.updatedAt >= t - 7 * 86400000) buckets[2].items.push(s);
+    else if (s.updatedAt >= t - 30 * 86400000) buckets[3].items.push(s);
+    else buckets[4].items.push(s);
   }
-  return b.filter(g => g.items.length > 0);
+  return buckets.filter(g => g.items.length > 0);
 }
 
+/* ───────────────────────── EVENTS ───────────────────────── */
 function wireEvents(): void {
-  const content = document.querySelector('.sidebar-content');
+  const content = document.querySelector('.sidebar-content') as HTMLElement | null;
   if (!content) return;
+  content.addEventListener('click', (e) => e.stopPropagation());
+
   if (selectionMode) {
-    const cancelBtn = document.getElementById('bulkCancelBtn');
-    const deleteBtn = document.getElementById('bulkDeleteBtn');
-    const dotsBtn = document.getElementById('bulkDotsBtn');
-    if (cancelBtn) cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); exitSelectionMode(); });
-    if (deleteBtn) deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); showDeleteConfirmation(); });
-    if (dotsBtn) dotsBtn.addEventListener('click', (e) => { e.stopPropagation(); openBulkMenu(dotsBtn as HTMLElement); });
+    document.getElementById('bulkCancelBtn')?.addEventListener('click', (e) => { e.stopPropagation(); exitSelectionMode(); });
+    document.getElementById('bulkDeleteBtn')?.addEventListener('click', (e) => { e.stopPropagation(); showDeleteConfirmation(); });
+    document.getElementById('bulkDotsBtn')?.addEventListener('click', (e) => { e.stopPropagation(); openBulkMenu(e.currentTarget as HTMLElement); });
     content.querySelectorAll('.chat-item').forEach(item => {
-      item.addEventListener('click', (e) => { e.stopPropagation(); const id = (item as HTMLElement).dataset.id; if (id) toggleSelect(id); });
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = (item as HTMLElement).dataset.id;
+        if (id) toggleSelect(id);
+      });
     });
     return;
   }
+
   content.querySelectorAll('.chat-item').forEach(item => {
-    const el = item as HTMLElement; const id = el.dataset.id;
-    item.addEventListener('click', e => {
+    const el = item as HTMLElement;
+    const id = el.dataset.id;
+
+    el.addEventListener('click', (e) => {
       e.stopPropagation();
       if ((e.target as HTMLElement).closest('.chat-item-menu')) return;
-      if (id) {
-        setActiveWorkspaceFilter(null);
-        loadSession(id);
-      }
+      if (!id) return;
+      closeMenu();
+      setActiveWorkspaceFilter(null);
+      loadSession(id);
     });
-    item.addEventListener('dblclick', e => { e.preventDefault(); e.stopPropagation(); if (id) { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); } });
-    item.addEventListener('mousedown', () => { if (!id) return; longPressTimer = setTimeout(() => { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); }, 500); });
-    item.addEventListener('mouseup', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
-    item.addEventListener('mouseleave', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
-    item.addEventListener('touchstart', () => { if (!id) return; longPressTimer = setTimeout(() => { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); }, 500); }, { passive: true });
-    item.addEventListener('touchend', () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } });
+
+    el.addEventListener('dblclick', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (!id) return;
+      enterSelectionMode(); selectedIds.add(id); updateSelectionUI();
+    });
+
+    el.addEventListener('mousedown', () => {
+      if (!id) return;
+      clearLongPress();
+      longPressTimer = setTimeout(() => { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); }, 520);
+    });
+    el.addEventListener('mouseup', clearLongPress);
+    el.addEventListener('mouseleave', clearLongPress);
+    el.addEventListener('touchstart', () => {
+      if (!id) return;
+      clearLongPress();
+      longPressTimer = setTimeout(() => { enterSelectionMode(); selectedIds.add(id); updateSelectionUI(); }, 520);
+    }, { passive: true });
+    el.addEventListener('touchmove', clearLongPress, { passive: true });
+    el.addEventListener('touchend', clearLongPress, { passive: true });
+    el.addEventListener('touchcancel', clearLongPress, { passive: true });
   });
+
   content.querySelectorAll('.chat-item-menu').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
+    btn.addEventListener('click', (e) => {
+      e.stopImmediatePropagation();
       e.preventDefault();
-      const item = (btn as HTMLElement).closest('.chat-item') as HTMLElement;
-      const id = item?.dataset.id;
-      const title = item?.querySelector('.chat-item-title')?.textContent || '';
-      if (id) openChatMenu(btn as HTMLElement, id, title);
+      clearLongPress();
+      const anchor = btn as HTMLElement;
+      const row = anchor.closest('.chat-item') as HTMLElement | null;
+      const id = row?.dataset.id;
+      const title = row?.querySelector('.chat-item-title')?.textContent || '';
+      if (!id) return;
+      if (menuEl && menuAnchor === anchor) { closeMenu(); return; }
+      openChatMenu(anchor, id, title);
     });
   });
 }
 
+/* ─────────── ROW MENU — always ABOVE the three-dots ─────────── */
 function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: string): void {
-  closeMenu();
+  closeMenu(); closeBulkMenu();
+  if (!sidebarEl) return;
+
+  menuAnchor = anchor;
+  anchor.closest('.chat-item')?.classList.add('menu-open');
+
   menuEl = document.createElement('div');
   menuEl.className = 'chat-menu';
-  menuEl.innerHTML = `<button class="chat-menu-btn rename-btn">${ICON_RENAME}<span>Rename</span></button><button class="chat-menu-btn delete-btn">${ICON_DELETE}<span>Delete</span></button>`;
-  document.body.appendChild(menuEl);
-  const r = anchor.getBoundingClientRect();
-  const mw = menuEl.offsetWidth || 150;
-  const mh = menuEl.offsetHeight || 80;
-  let left = r.right - mw;
-  let top = r.bottom + 4;
-  if (left < 8) left = 8;
-  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-  if (top + mh > window.innerHeight - 8) top = r.top - mh - 4;
-  menuEl.style.left = `${left}px`;
-  menuEl.style.top = `${top}px`;
-  menuEl.querySelector('.rename-btn')?.addEventListener('click', (e) => { e.stopPropagation(); if (menuEl) showChatRename(menuEl, sessionId, currentTitle); });
+  menuEl.innerHTML = `<button class="chat-menu-btn rename-btn" type="button">${ICON_RENAME}<span>Rename</span></button><button class="chat-menu-btn delete-btn" type="button">${ICON_DELETE}<span>Delete</span></button>`;
+  sidebarEl.appendChild(menuEl);
+  positionMenu();
+
+  menuEl.addEventListener('click', (e) => e.stopPropagation());
+  menuEl.addEventListener('mousedown', (e) => e.stopPropagation());
+  menuEl.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+
+  menuEl.querySelector('.rename-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (menuEl) showChatRename(menuEl, sessionId, currentTitle);
+  });
   menuEl.querySelector('.delete-btn')?.addEventListener('click', (e) => {
     e.stopPropagation();
     getAllTabs().filter(t => t.sessionId === sessionId).forEach(tab => closeTab(tab.id));
     deleteSession(sessionId);
-    renderAll();
     closeMenu();
+    renderAll();
     if (!getCurrentSession()) document.dispatchEvent(new Event('asuum:welcome-mode'));
   });
 }
 
+/** ✅ Menu sits ABOVE its own dots button, right-aligned, inside drawer bounds. */
+function positionMenu(): void {
+  if (!menuEl || !menuAnchor || !sidebarEl) return;
+  if (!document.body.contains(menuAnchor)) { closeMenu(); return; }
+
+  const host = sidebarEl.getBoundingClientRect();
+  const r = menuAnchor.getBoundingClientRect();
+  const mw = menuEl.offsetWidth || 150;
+  const mh = menuEl.offsetHeight || 78;
+  const pad = 8;
+  const gap = 4;
+
+  let left = r.right - host.left - mw;
+  left = Math.max(pad, Math.min(left, host.width - mw - pad));
+
+  // Primary: ABOVE the dots
+  let top = r.top - host.top - mh - gap;
+  // Only if there is literally no room above, drop below
+  if (top < pad) top = r.bottom - host.top + gap;
+  top = Math.max(pad, Math.min(top, host.height - mh - pad));
+
+  menuEl.style.left = `${left}px`;
+  menuEl.style.top = `${top}px`;
+}
+
 function showChatRename(menu: HTMLElement, sessionId: string, currentTitle: string): void {
-  menu.innerHTML = `<div class="chat-menu-rename"><input class="chat-menu-input" type="text" value="${esc(currentTitle)}" maxlength="42"/><div class="chat-menu-rename-actions"><button class="rename-save" title="Save">${ICON_SAVE}</button><button class="rename-cancel" title="Cancel">${ICON_CANCEL}</button></div></div>`;
+  menu.innerHTML = `<div class="chat-menu-rename"><input class="chat-menu-input" type="text" value="${esc(currentTitle)}" maxlength="42" aria-label="Chat name"/><div class="chat-menu-rename-actions"><button class="rename-save" type="button" title="Save">${ICON_SAVE}</button><button class="rename-cancel" type="button" title="Cancel">${ICON_CANCEL}</button></div></div>`;
+  positionMenu();
   const input = menu.querySelector('.chat-menu-input') as HTMLInputElement;
   input.focus(); input.select();
-  const save = () => { const v = input.value.trim(); if (v) renameSession(sessionId, v); closeMenu(); };
+  const save = (): void => { const v = input.value.trim(); if (v) renameSession(sessionId, v); closeMenu(); renderAll(); };
   menu.querySelector('.rename-save')?.addEventListener('click', (e) => { e.stopPropagation(); save(); });
   menu.querySelector('.rename-cancel')?.addEventListener('click', (e) => { e.stopPropagation(); closeMenu(); });
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') closeMenu(); });
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); save(); }
+    if (e.key === 'Escape') { e.preventDefault(); closeMenu(); }
+  });
   input.addEventListener('click', (e) => e.stopPropagation());
 }
 
-function closeMenu(): void { if (menuEl) { menuEl.remove(); menuEl = null; } }
-function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function closeMenu(): void {
+  if (menuAnchor) menuAnchor.closest('.chat-item')?.classList.remove('menu-open');
+  if (menuEl) menuEl.remove();
+  menuEl = null;
+  menuAnchor = null;
+}
