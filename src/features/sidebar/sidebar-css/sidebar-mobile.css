@@ -1,92 +1,124 @@
 /* ==========================================================================
-   sidebar-mobile.css — MOBILE OVERRIDE LAYER ONLY
+   sidebar-mobile.css — MOBILE OVERRIDE LAYER ONLY (SLIM / TIGHT)
    Must load AFTER sidebar-main.css. No base rules here, only overrides.
+   --------------------------------------------------------------------------
+   SLIM SCALE
+     drawer 276 · pad 9 · top 40 · row 34 · chat 35 · head 23 · profile 40
+     gaps: row 1 · chat 2 · divider 2 · group 6
+   Icon rail stays fixed (left 8) so icons never jump — only text slides.
    Breakpoints: ≤768 drawer · ≤380 narrow phone
    ========================================================================== */
 
 @media(max-width:768px){
   .sidebar{
-    --sb-wide:288px;--sb-pad:12px;--sb-top:56px;
-    --sb-row:46px;--sb-row-gap:3px;--sb-chat:46px;--sb-chat-gap:3px;--sb-head:34px;
-    --sb-radius:10px;--sb-icon:19px;--sb-icon-left:10px;
-    --sb-text:.9375rem;--sb-chat-text:.875rem;--sb-label:.6875rem;--sb-group:.625rem;
-    position:fixed;left:0;top:0;bottom:0;width:288px!important;
-    transform:translateX(-288px);
+    --sb-wide:276px;
+    --sb-pad:9px;
+    --sb-top:40px;
+    --sb-row:34px;
+    --sb-row-gap:1px;
+    --sb-chat:35px;
+    --sb-chat-gap:2px;
+    --sb-head:23px;
+    --sb-radius:8px;
+    --sb-icon:17px;
+    --sb-icon-left:8px;
+    --sb-text:.85rem;
+    --sb-chat-text:.8rem;
+    --sb-label:.6rem;
+    --sb-group:.56rem;
+
+    position:fixed;left:0;top:0;bottom:0;width:276px!important;
+    transform:translateX(-276px);
     transition:transform .3s cubic-bezier(.16,1,.3,1),background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1));
     z-index:200;border-radius:0;box-shadow:none!important;
     will-change:transform;touch-action:pan-y;
     padding-top:env(safe-area-inset-top);
   }
-  .sidebar.expanded{width:288px!important;transform:translateX(0)!important}
+  .sidebar.expanded{width:276px!important;transform:translateX(0)!important}
   .sidebar.dragging{transition:none!important}
   .sidebar.hub-fullscreen{transform:translateX(0)!important;width:100%!important}
 
-  .sb-top{height:56px!important;min-height:56px!important;grid-template-columns:1fr 52px!important;padding:0 0 0 16px!important}
+  /* ── TOP · thin brand layer ── */
+  .sb-top{height:40px!important;min-height:40px!important;grid-template-columns:1fr 44px!important;padding:0 0 0 11px!important}
   .sb-brand{opacity:1!important}
-  .sb-logo-text{font-size:1.125rem!important;letter-spacing:-.5px!important}
-  .sb-toggle-btn{width:38px!important;height:38px!important;min-width:38px!important;border-radius:10px!important}
-  .sb-toggle-btn svg{width:20px!important;height:20px!important}
+  .sb-logo-text{font-size:.98rem!important;letter-spacing:-.4px!important}
+  .sb-toggle-btn{width:30px!important;height:30px!important;min-width:30px!important;border-radius:8px!important}
+  .sb-toggle-btn svg{width:17px!important;height:17px!important}
 
-  .sb-middle{padding:2px 12px 0!important;gap:3px!important}
+  /* ── NEW CHAT / MODEL HUB · slim rows, minimal gap ── */
+  .sb-middle{padding:1px 9px 0!important;gap:1px!important}
   .sidebar .sidebar-content{opacity:1!important;pointer-events:auto!important;transition:none!important}
-  .sb-action-btn{height:46px!important;min-height:46px!important;border-radius:10px!important}
-  .sb-action-btn svg{width:19px!important;height:19px!important;left:10px!important}
-  .sb-btn-text{opacity:1!important;max-width:196px!important;transform:translateX(0)!important;margin-left:42px!important;font-size:.9375rem!important}
-  .sb-divider,.sb-divider.sb-divider-spaced{width:100%!important;margin:5px 0 3px!important}
+  .sb-action-btn{height:34px!important;min-height:34px!important;border-radius:8px!important}
+  .sb-action-btn svg{width:17px!important;height:17px!important;left:8px!important}
+  .sb-btn-text{opacity:1!important;max-width:190px!important;transform:translateX(0)!important;margin-left:33px!important;font-size:.85rem!important}
+  .sb-divider,.sb-divider.sb-divider-spaced{width:100%!important;margin:2px 0 1px!important}
 
-  .bulk-bar-sticky{padding:6px 6px 6px 12px!important;min-height:34px!important}
-  .bulk-bar-normal .section-label{font-size:.6875rem!important;letter-spacing:1.15px!important}
-  .bb-cancel,.bb-delete{padding:8px 11px!important;font-size:.8125rem!important;border-radius:8px!important}
-  .bb-count{font-size:.75rem!important}
-  .bb-dots{width:34px!important;height:34px!important;border-radius:8px!important}
-  .bb-dots svg{width:15px!important;height:15px!important}
-  .bb-delete svg{width:14px!important;height:14px!important}
+  /* ── ALL CHATS header · slim ── */
+  .bulk-bar-sticky{padding:2px 4px 2px 9px!important;min-height:23px!important}
+  .bulk-bar-normal .section-label{font-size:.6rem!important;letter-spacing:1.1px!important}
+  .bb-cancel,.bb-delete{padding:4px 8px!important;font-size:.74rem!important;border-radius:6px!important}
+  .bb-count{font-size:.66rem!important;min-width:15px!important}
+  .bb-dots{width:28px!important;height:28px!important;border-radius:7px!important}
+  .bb-dots svg{width:13px!important;height:13px!important}
+  .bb-delete svg{width:12px!important;height:12px!important}
 
-  .chat-list-area{padding:5px 0 10px!important}
+  /* ── CHAT LIST · dense ── */
+  .chat-list-area{padding:2px 0 6px!important}
   .chat-list-area::-webkit-scrollbar{width:3px}
-  .chat-group{gap:3px!important}
-  .chat-group + .chat-group{margin-top:12px!important}
-  .chat-group-label{padding:10px 12px 4px!important;font-size:.625rem!important}
-  .chat-item{min-height:46px!important;padding:8px 8px 8px 12px!important;gap:10px!important;border-radius:10px!important}
-  .chat-item-icon{width:16px!important;height:16px!important}
-  .chat-item-icon svg{width:15px!important;height:15px!important}
-  .chat-item-title{font-size:.875rem!important}
-  .chat-item-menu{opacity:1!important;width:34px!important;height:34px!important;border-radius:8px!important}
-  .chat-item-menu svg{width:15px!important;height:15px!important}
-  .select-circle{width:20px!important;height:20px!important}
-  .select-circle svg{width:11px!important;height:11px!important}
-  .sidebar-empty-state{padding:32px 18px!important;font-size:.875rem!important}
-  .sidebar-empty-state .ses-hint{font-size:.75rem!important}
+  .chat-group{gap:2px!important}
+  .chat-group + .chat-group{margin-top:6px!important}
+  .chat-group-label{padding:5px 9px 2px!important;font-size:.56rem!important;letter-spacing:.85px!important}
+  .chat-item{min-height:35px!important;padding:4px 5px 4px 9px!important;gap:8px!important;border-radius:8px!important}
+  .chat-item-icon{width:14px!important;height:14px!important}
+  .chat-item-icon svg{width:13px!important;height:13px!important}
+  .chat-item-title{font-size:.8rem!important}
+  .chat-item-menu{opacity:1!important;width:28px!important;height:28px!important;border-radius:7px!important}
+  .chat-item-menu svg{width:13px!important;height:13px!important}
+  .select-circle{width:16px!important;height:16px!important}
+  .select-circle svg{width:9px!important;height:9px!important}
+  .sidebar-empty-state{padding:22px 14px!important;font-size:.8rem!important;gap:2px!important}
+  .sidebar-empty-state .ses-icon{width:20px!important;height:20px!important}
+  .sidebar-empty-state .ses-icon svg{width:17px!important;height:17px!important}
+  .sidebar-empty-state .ses-hint{font-size:.66rem!important}
 
-  .sb-bottom{padding:10px 12px calc(12px + env(safe-area-inset-bottom))!important;border-top:1px solid var(--sidebar-border,#1a1a1a)!important}
-  .sb-profile-box{width:100%!important;height:56px!important;border-radius:12px!important;background:var(--sidebar-hover,rgba(255,255,255,.035))!important;border:1px solid var(--sidebar-border,rgba(255,255,255,.07))!important}
-  .sb-avatar{left:7px!important;transform:translateY(-50%)!important;width:38px!important;height:38px!important;min-width:38px!important}
-  .sb-avatar svg{width:18px!important;height:18px!important}
-  .sb-profile-info{opacity:1!important;max-width:150px!important;transform:translateX(0)!important;margin-left:53px!important;gap:2px!important}
-  .sb-name{font-size:.875rem!important}
-  .sb-status{font-size:.75rem!important}
-  .sb-theme-toggle{opacity:1!important;pointer-events:auto!important;width:36px!important;height:36px!important;min-width:36px!important;right:8px!important;border-radius:9px!important}
-  .sb-theme-toggle svg{width:16px!important;height:16px!important}
+  /* ── PROFILE · slim, pinned low ── */
+  .sb-bottom{padding:6px 9px calc(7px + env(safe-area-inset-bottom))!important;border-top:1px solid var(--sidebar-border,#1a1a1a)!important}
+  .sb-profile-box{width:100%!important;height:40px!important;border-radius:9px!important;background:var(--sidebar-hover,rgba(255,255,255,.035))!important;border:1px solid var(--sidebar-border,rgba(255,255,255,.07))!important}
+  .sb-avatar{left:5px!important;transform:translateY(-50%)!important;width:27px!important;height:27px!important;min-width:27px!important}
+  .sb-avatar svg{width:14px!important;height:14px!important}
+  .sb-profile-info{opacity:1!important;max-width:140px!important;transform:translateX(0)!important;margin-left:38px!important;gap:1px!important}
+  .sb-name{font-size:.79rem!important;line-height:1.2!important}
+  .sb-status{font-size:.65rem!important;line-height:1.2!important}
+  .sb-status::before{width:4px!important;height:4px!important}
+  .sb-theme-toggle{opacity:1!important;pointer-events:auto!important;width:27px!important;height:27px!important;min-width:27px!important;right:6px!important;border-radius:7px!important}
+  .sb-theme-toggle svg{width:13px!important;height:13px!important}
 
-  .chat-menu{min-width:190px;border-radius:11px;padding:5px}
-  .chat-menu-btn{padding:12px 14px!important;font-size:.875rem!important;border-radius:8px!important}
-  .chat-menu-btn svg{width:15px!important;height:15px!important}
-  .chat-menu-input{padding:10px 12px!important;font-size:.875rem!important}
-  .rename-save,.rename-cancel{width:34px!important;height:34px!important}
-  .rename-save svg,.rename-cancel svg{width:14px!important;height:14px!important}
-  .bulk-dropdown{min-width:200px;padding:5px}
-  .bulk-dropdown-item{padding:12px 14px!important;font-size:.875rem!important;border-radius:8px!important}
-  .bulk-dropdown-item svg{width:15px!important;height:15px!important}
+  /* ── ROW MENU (above dots) · compact ── */
+  .chat-menu{min-width:168px;border-radius:9px;padding:4px}
+  .chat-menu-btn{padding:9px 11px!important;font-size:.8rem!important;border-radius:7px!important;gap:8px!important}
+  .chat-menu-btn svg{width:13px!important;height:13px!important}
+  .chat-menu-rename{padding:5px!important;gap:5px!important}
+  .chat-menu-input{padding:7px 9px!important;font-size:.8rem!important}
+  .rename-save,.rename-cancel{width:28px!important;height:28px!important;border-radius:6px!important}
+  .rename-save svg,.rename-cancel svg{width:12px!important;height:12px!important}
+
+  /* ── SELECTION MENU · compact ── */
+  .bulk-dropdown{min-width:176px;padding:4px;border-radius:9px}
+  .bulk-dropdown-item{padding:9px 11px!important;font-size:.8rem!important;border-radius:7px!important;gap:8px!important}
+  .bulk-dropdown-item svg{width:13px!important;height:13px!important}
+
+  /* ── OUTSIDE HIT-AREA follows the new drawer width ── */
+  .sidebar-mobile-overlay{left:276px}
 
   .main-panel{border-radius:0!important}
-  .bulk-delete-modal{padding:22px 18px 16px!important}
-  .bdm-btn{padding:11px 18px!important}
+  .bulk-delete-modal{padding:20px 17px 15px!important}
+  .bdm-btn{padding:9px 16px!important}
 }
 
 @media(max-width:380px){
   .sidebar{--sb-wide:264px;width:264px!important;transform:translateX(-264px)}
   .sidebar.expanded{width:264px!important}
   .sidebar-mobile-overlay{left:264px}
-  .sb-btn-text{max-width:172px!important}
-  .sb-profile-info{max-width:126px!important}
+  .sb-btn-text{max-width:168px!important}
+  .sb-profile-info{max-width:122px!important}
 }
