@@ -1,4 +1,4 @@
-/** chat-ui.ts — V1 + REGENERATE WITH DELETE-BELOW + THEME TOGGLE IN MENU */
+/** chat-ui.ts — V1 + REGENERATE DELETE-BELOW + BUTTON-ANCHORED MENU (ZERO SHADOW) */
 import { eventBus } from '../../../event-bus';
 import { routeChatRequest, ChatMessage } from '../../../core/ai-router';
 import { appendToCurrent, appendToSession, getCurrentSession, onSessionChange, updateMessageText, createSession, startNewChat, renameSession, deleteSession, removeLastAiMessage, deleteMessagesFromIndex, getMessagesUpTo, ChatSession } from '../services/chat-store';
@@ -7,8 +7,8 @@ import { LoadingManager } from '../../../core/loading';
 import { toggleMainTheme } from '../../welcome-screen/welcome-ts/welcome-ui';
 
 let _openRulesModal:(()=>void)|null=null,_refreshRulesDot:(()=>void)|null=null;
-function getOpenRulesModal():()=>void{if(!_openRulesModal){_openRulesModal=():void=>{const o=document.getElementById('crOverlay');if(o)o.classList.add('active')};}return _openRulesModal;}
-function getRefreshRulesDot():()=>void{if(!_refreshRulesDot){_refreshRulesDot=():void=>{const d=document.getElementById('mmRulesDot');if(d){try{const s=localStorage.getItem('asuum-chat-rules');d.classList.toggle('on',!!s&&s!=='{"quick":[],"custom":""}');}catch{d.classList.remove('on')}}};}return _refreshRulesDot;}
+function getOpenRulesModal():()=>void{if(!_openRulesModal){_openRulesModal=():void=>{const o=document.getElementById('crOverlay');if(o){o.classList.add('open');o.classList.add('active')}};}return _openRulesModal;}
+function getRefreshRulesDot():()=>void{if(!_refreshRulesDot){_refreshRulesDot=():void=>{const d=document.getElementById('mmRulesDot');if(d){try{const s=localStorage.getItem('asuum-chat-rules');const on=!!s&&s!=='{"quick":[],"custom":""}';d.classList.toggle('active',on);d.classList.toggle('on',on);}catch{d.classList.remove('active');d.classList.remove('on')}}};}return _refreshRulesDot;}
 
 const ICON_EDIT=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
 const ICON_COPY=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
@@ -35,6 +35,7 @@ let pillarItemEls:HTMLElement[]=[],pillarMessageRefs:HTMLElement[]=[],historyIte
 let isDraggingHistory=false,historyDragStartY=0,historyDragStartScroll=0;
 let thinkingRow:HTMLElement|null=null;
 let lastUserBubbleEl:HTMLElement|null=null;
+let menuRepositionRaf:number|null=null;
 const HIST_STRIDE=24;
 
 function silentCopy(text:string):void{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0;width:1px;height:1px;padding:0;border:none;outline:none;box-shadow:none;background:transparent';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy')}catch(_){}document.body.removeChild(ta)}
@@ -59,7 +60,7 @@ function stopBubbleShimmer():void{
 }
 
 export function initializeChatUI():void{
-  console.log('💬 Chat UI (Secure Router + Regenerate Delete-Below)');
+  console.log('💬 Chat UI (Secure Router + Regenerate Delete-Below + Anchored Menu)');
   eventBus.on('NEW_MESSAGE',async(payload:any)=>{
     const text=payload?.text??'';if(!text)return;
     const panel=document.getElementById('mainPanel'),isOnWelcome=panel&&!panel.classList.contains('chat-active');
@@ -232,9 +233,7 @@ function wireScrollToBottomButton():void{const b=document.getElementById('scroll
 function updateScrollToBottomButton():void{const b=document.getElementById('scrollToBottomBtn');if(!b)return;b.classList.toggle('visible',userHasScrolledUp)}
 function smoothScrollToBottom():void{const l=document.getElementById('chatMessages');if(!l)return;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();requestAnimationFrame(()=>{const rows=l.querySelectorAll('.message-row,.chat-end-marker-wrapper');if(rows.length>0){const last=rows[rows.length-1]as HTMLElement;l.scrollTo({top:last.offsetTop+last.offsetHeight-l.clientHeight+3,behavior:'smooth'})}else l.scrollTo({top:l.scrollHeight,behavior:'smooth'})})}
 
-/**
- * ✅ THEME TOGGLE HELPERS for three-line menu
- */
+/* ─────────── THEME TOGGLE INSIDE THE THREE-LINE MENU ─────────── */
 function getThemeToggleHTML():string{
   const isDark=document.body.classList.contains('main-dark');
   return isDark
@@ -245,14 +244,85 @@ function updateThemeToggleIcon(btn:HTMLElement):void{btn.innerHTML=getThemeToggl
 function injectThemeToggleInMenu(menu:HTMLElement):void{
   if(menu.querySelector('.mm-theme-toggle'))return;
   const divider=document.createElement('div');divider.className='mm-divider mm-theme-divider';
-  const btn=document.createElement('button');btn.className='mm-item mm-theme-toggle';
+  const btn=document.createElement('button');btn.className='mm-item mm-theme-toggle';btn.type='button';
   btn.innerHTML=getThemeToggleHTML();
-  btn.addEventListener('click',(e)=>{e.stopPropagation();toggleMainTheme();updateThemeToggleIcon(btn)});
+  btn.addEventListener('click',(e)=>{e.stopPropagation();toggleMainTheme();updateThemeToggleIcon(btn);requestAnimationFrame(positionMainMenu);});
   menu.appendChild(divider);menu.appendChild(btn);
 }
 
-function wireMainMenu():void{const w=document.getElementById('mmWrap'),b=document.getElementById('mmBtn'),m=document.getElementById('mmMenu');if(!w||!b||!m)return;const close=()=>w.classList.remove('open');b.addEventListener('click',()=>{if(w.classList.contains('open'))close();else{refreshMenuState();w.classList.add('open')}});document.addEventListener('click',(e)=>{if(!w.contains(e.target as Node))close()});document.addEventListener('keydown',(e)=>{if(e.key==='Escape')close()});m.querySelectorAll('.mm-item:not(.mm-theme-toggle)').forEach((it)=>it.addEventListener('click',()=>{handleMenuAction((it as HTMLElement).dataset.action||'');close()}));injectThemeToggleInMenu(m)}
-function refreshMenuState():void{const m=document.getElementById('mmMenu');if(!m)return;const p=document.getElementById('mainPanel'),ic=!!p&&p.classList.contains('chat-active');m.classList.toggle('welcome-mode',!ic);const s=getCurrentSession(),hc=ic&&!!s&&s.messages.length>0;m.querySelectorAll('.mm-item:not(.mm-theme-toggle)').forEach((it)=>{const a=(it as HTMLElement).dataset.action;it.classList.toggle('disabled',(a==='rename'||a==='export'||a==='delete')&&!hc)});getRefreshRulesDot();const tb=m.querySelector('.mm-theme-toggle')as HTMLElement|null;if(tb)updateThemeToggleIcon(tb)}
+/**
+ * ✅ Keeps the menu glued to its button.
+ * CSS already anchors it 2px under the button, right edges flush.
+ * This only flips it ABOVE the button when the viewport has no room below,
+ * so it never floats away or gets clipped.
+ */
+function positionMainMenu():void{
+  const wrap=document.getElementById('mmWrap');
+  const menu=document.getElementById('mmMenu');
+  if(!wrap||!menu)return;
+  menu.classList.remove('flip-up');
+  const r=wrap.getBoundingClientRect();
+  const mh=menu.offsetHeight||240;
+  const spaceBelow=window.innerHeight-r.bottom-10;
+  const spaceAbove=r.top-10;
+  if(mh>spaceBelow&&spaceAbove>spaceBelow)menu.classList.add('flip-up');
+}
+function scheduleMenuReposition():void{
+  const wrap=document.getElementById('mmWrap');
+  if(!wrap||!wrap.classList.contains('open'))return;
+  if(menuRepositionRaf!==null)return;
+  menuRepositionRaf=requestAnimationFrame(()=>{menuRepositionRaf=null;positionMainMenu();});
+}
+
+function wireMainMenu():void{
+  const w=document.getElementById('mmWrap'),b=document.getElementById('mmBtn'),m=document.getElementById('mmMenu');
+  if(!w||!b||!m)return;
+
+  const close=():void=>{w.classList.remove('open');m.classList.remove('flip-up');b.setAttribute('aria-expanded','false');};
+  const open=():void=>{
+    refreshMenuState();
+    w.classList.add('open');
+    b.setAttribute('aria-expanded','true');
+    requestAnimationFrame(positionMainMenu);
+  };
+
+  b.setAttribute('aria-haspopup','menu');
+  b.setAttribute('aria-expanded','false');
+  m.setAttribute('role','menu');
+
+  b.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    if(w.classList.contains('open'))close();else open();
+  });
+
+  /* press anywhere outside the button+menu closes it instantly */
+  document.addEventListener('pointerdown',(e)=>{
+    if(!w.classList.contains('open'))return;
+    if(w.contains(e.target as Node))return;
+    close();
+  },true);
+
+  document.addEventListener('click',(e)=>{if(!w.contains(e.target as Node))close()});
+  document.addEventListener('keydown',(e)=>{if(e.key==='Escape')close()});
+
+  m.querySelectorAll('.mm-item:not(.mm-theme-toggle)').forEach((it)=>{
+    (it as HTMLElement).addEventListener('click',(e)=>{
+      e.stopPropagation();
+      handleMenuAction((it as HTMLElement).dataset.action||'');
+      close();
+    });
+  });
+
+  injectThemeToggleInMenu(m);
+
+  window.addEventListener('resize',scheduleMenuReposition);
+  window.addEventListener('orientationchange',scheduleMenuReposition);
+  document.getElementById('chatMessages')?.addEventListener('scroll',scheduleMenuReposition,{passive:true});
+  document.addEventListener('asuum:chat-mode',scheduleMenuReposition);
+  document.addEventListener('asuum:welcome-mode',scheduleMenuReposition);
+}
+
+function refreshMenuState():void{const m=document.getElementById('mmMenu');if(!m)return;const p=document.getElementById('mainPanel'),ic=!!p&&p.classList.contains('chat-active');m.classList.toggle('welcome-mode',!ic);const s=getCurrentSession(),hc=ic&&!!s&&s.messages.length>0;m.querySelectorAll('.mm-item:not(.mm-theme-toggle)').forEach((it)=>{const a=(it as HTMLElement).dataset.action;it.classList.toggle('disabled',(a==='rename'||a==='export'||a==='delete')&&!hc)});getRefreshRulesDot()();const tb=m.querySelector('.mm-theme-toggle')as HTMLElement|null;if(tb)updateThemeToggleIcon(tb)}
 function handleMenuAction(action:string):void{const s=getCurrentSession();switch(action){case'new-chat':startNewChat();currentRenderedSessionId=null;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();const inp=document.querySelector('.chat-input')as HTMLTextAreaElement|null;if(inp){inp.value='';inp.dispatchEvent(new Event('input'));inp.focus()}break;case'rename':if(!s)return;const n=prompt('Rename:',s.title);if(n?.trim())renameSession(s.id,n.trim());break;case'export':if(!s||!s.messages.length)return;exportSession(s);break;case'rules':getOpenRulesModal()();break;case'model-hub':document.getElementById('modelHubBtn')?.click();break;case'delete':if(s&&confirm(`Delete "${s.title}"?`)){deleteSession(s.id);currentRenderedSessionId=null;document.dispatchEvent(new CustomEvent('asuum:welcome-mode'));}break}}
 function exportSession(s:ChatSession):void{const lines=['ASUUM EXPORT',`Title: ${s.title}`,`Date: ${new Date().toLocaleString()}`,'---',''];s.messages.forEach(m=>lines.push(`${m.sender==='user'?'You':'Asuum'}: ${m.text}`,''));const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${(s.title||'chat').replace(/[^\w\d-_ ]/g,'').slice(0,40)}.txt`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
 function showChatScreen():void{const p=document.getElementById('mainPanel');if(p&&!p.classList.contains('chat-active')){p.classList.add('chat-active');const s=getCurrentSession();document.dispatchEvent(new CustomEvent('asuum:chat-mode',{detail:{title:s?.title||'New Chat'}}));setTimeout(()=>smartAutoScroll(),50)}}
@@ -405,7 +475,7 @@ async function generateAiReply():Promise<void>{
   if(!thinkingRow)appendThinkingRow();
   try{
     const msgs:ChatMessage[]=targetSession?.messages.map(m=>({role:m.sender==='user'?'user'as const:'assistant'as const,content:m.text}))||[];
-    
+
     const result=await LoadingManager.load('ai-response',async()=>await routeChatRequest(msgs),{strategy:'smart',priority:'high',showUI:false,timeout:60000,retryCount:1});
     removeThinkingRow();
 
@@ -428,7 +498,7 @@ async function generateAiReply():Promise<void>{
   }catch(error:unknown){
     removeThinkingRow();
     document.dispatchEvent(new CustomEvent('asuum:ai-thinking-stop'));
-    
+
     let em:string;
     const errMsg=error instanceof Error?error.message:'Unknown error';
     if(errMsg.startsWith('NO_KEY:')){
@@ -441,7 +511,7 @@ async function generateAiReply():Promise<void>{
     }else{
       em=`⚠️ ${errMsg}`;
     }
-    
+
     const currentSession=getCurrentSession();
     const currentSessionId=currentSession?.id??null;
     if(currentSessionId===targetSessionId){
