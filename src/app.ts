@@ -3,15 +3,26 @@
  * FILE: app.ts — ULTRA OPTIMIZED ENTRY POINT
  * 3-Phase Priority Loading + Performance Monitor + Zero Overhead
  * ============================================
+ * CSS LAYERING RULE:
+ *   har feature ka base/desktop layer pehle, mobile override layer baad mein.
+ *   Vite import order hi cascade order hai — isliye barrels ki zaroorat nahi.
+ * ============================================
  */
 
-// ===== CSS IMPORTS (All CSS loads instantly — lightweight) =====
+// ===== CSS IMPORTS (order = cascade priority) =====
 import './app.css';
 import './features/welcome-screen/welcome-css/welcome-main.css';
 import './features/input-box/input-box-css/input-main.css';
 import './features/chat-screen/chat-screen-css/chat-main.css';
+
+/* Sidebar — base/desktop, then mobile overrides */
 import './features/sidebar/sidebar-css/sidebar-main.css';
+import './features/sidebar/sidebar-css/sidebar-mobile.css';
+
+/* Header — base/desktop, then mobile overrides */
 import './features/header/header-css/header-main.css';
+import './features/header/header-css/header-mobile.css';
+
 import './features/model-hub/model-hub-css/model-hub-main.css';
 import './features/chat-rules/chat-rules-css/chat-rules-main.css';
 import './features/command-palette/command-palette-css/palette-main.css';
@@ -48,6 +59,7 @@ let headerLoaded = false;
 let modelHubLoaded = false;
 let chatRulesLoaded = false;
 let paletteLoaded = false;
+let hubExitWired = false;
 
 /**
  * ============================================
@@ -90,7 +102,7 @@ async function initializeApp(): Promise<void> {
     console.log('  ⏳ Phase 2: Deferred UI');
     await loadSidebar();
     await loadHeader();
-    setupSidebarToggle();
+    setupHubFullscreenExit();
   }, 150);
 
   // ===== PHASE 3: HEAVY FEATURES (On browser idle) =====
@@ -104,7 +116,7 @@ async function initializeApp(): Promise<void> {
  */
 async function loadSidebar(): Promise<void> {
   if (sidebarLoaded) return;
-  
+
   try {
     console.log('    → Loading Sidebar...');
     const { initializeSidebarUI } = await import('./features/sidebar/sidebar-ts/sidebar-ui');
@@ -122,7 +134,7 @@ async function loadSidebar(): Promise<void> {
  */
 async function loadHeader(): Promise<void> {
   if (headerLoaded) return;
-  
+
   try {
     console.log('    → Loading Header...');
     const [
@@ -134,7 +146,7 @@ async function loadHeader(): Promise<void> {
       import('./features/header/services/header-init.service'),
       import('./features/header/collaboration'),
     ]);
-    
+
     runHeaderInitServices();
     initializeHeaderUI();
     initializeHeaderCollaboration();
@@ -158,12 +170,11 @@ function loadHeavyFeaturesOnIdle(): void {
     console.log('✅ All heavy features loaded in background!');
   };
 
-  // Prefer requestIdleCallback (browser tells us when free)
   if ('requestIdleCallback' in window) {
-    (window as any).requestIdleCallback(() => loadAll(), { timeout: 3000 });
+    (window as unknown as { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => void })
+      .requestIdleCallback(() => { void loadAll(); }, { timeout: 3000 });
   } else {
-    // Fallback: setTimeout
-    setTimeout(() => loadAll(), 2000);
+    setTimeout(() => { void loadAll(); }, 2000);
   }
 }
 
@@ -174,7 +185,7 @@ function loadHeavyFeaturesOnIdle(): void {
  */
 async function loadModelHub(): Promise<void> {
   if (modelHubLoaded) return;
-  
+
   try {
     console.log('    → Loading Model Hub...');
     const [
@@ -184,7 +195,7 @@ async function loadModelHub(): Promise<void> {
       import('./features/model-hub/model-hub-ts/model-hub-ui'),
       import('./features/model-hub/collaboration'),
     ]);
-    
+
     initializeModelHubUI();
     initializeModelHubCollaboration();
     modelHubLoaded = true;
@@ -200,7 +211,7 @@ async function loadModelHub(): Promise<void> {
  */
 async function loadChatRules(): Promise<void> {
   if (chatRulesLoaded) return;
-  
+
   try {
     console.log('    → Loading Chat Rules...');
     const [
@@ -212,7 +223,7 @@ async function loadChatRules(): Promise<void> {
       import('./features/chat-rules/services/chat-rules-init.service'),
       import('./features/chat-rules/collaboration'),
     ]);
-    
+
     runChatRulesInitServices();
     initializeChatRulesUI();
     initializeChatRulesCollaboration();
@@ -229,7 +240,7 @@ async function loadChatRules(): Promise<void> {
  */
 async function loadCommandPalette(): Promise<void> {
   if (paletteLoaded) return;
-  
+
   try {
     console.log('    → Loading Command Palette...');
     const [
@@ -239,7 +250,7 @@ async function loadCommandPalette(): Promise<void> {
       import('./features/command-palette/command-palette-ts/palette-ui'),
       import('./features/command-palette/collaboration'),
     ]);
-    
+
     initializeCommandPaletteUI();
     initializeCommandPaletteCollaboration();
     paletteLoaded = true;
@@ -250,29 +261,39 @@ async function loadCommandPalette(): Promise<void> {
 
 /**
  * ============================================
- * SIDEBAR TOGGLE SETUP
+ * HUB FULLSCREEN EXIT (only)
+ * ============================================
+ * ⚠️ IMPORTANT: expand/collapse ka owner sidebar-ui.ts hai.
+ * Pehle yahan ek doosra `classList.toggle('expanded')` tha jo
+ * controller ke toggle se takra raha tha (double toggle / desync).
+ * Ab ye listener SIRF hub-fullscreen mode exit karta hai.
+ *
+ * Capture phase par hai, aur sidebar-ui `stopPropagation()` use
+ * karta hai (not `stopImmediatePropagation`), isliye same-node
+ * capture listeners dono chalte hain — ye reliably fire hota hai.
  * ============================================
  */
-function setupSidebarToggle(): void {
-  const sidebar = document.getElementById('sidebar');
-  const toggleBtn = document.getElementById('sidebarToggle');
+function setupHubFullscreenExit(): void {
+  if (hubExitWired) return;
+  hubExitWired = true;
 
-  if (sidebar && toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-      if (sidebar.classList.contains('hub-fullscreen')) {
-        sidebar.classList.remove('hub-fullscreen');
-        const fsBtn = document.getElementById('hubFullscreenBtn');
-        if (fsBtn) {
-          fsBtn.innerHTML = ICON_MAXIMIZE;
-          fsBtn.title = 'Fullscreen';
-        }
-      }
-      sidebar.classList.toggle('expanded');
-    });
-  }
+  document.addEventListener('click', (e: Event) => {
+    const target = e.target as HTMLElement | null;
+    if (!target || !target.closest('#sidebarToggle,.sb-toggle-btn')) return;
+
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar || !sidebar.classList.contains('hub-fullscreen')) return;
+
+    sidebar.classList.remove('hub-fullscreen');
+    const fsBtn = document.getElementById('hubFullscreenBtn');
+    if (fsBtn) {
+      fsBtn.innerHTML = ICON_MAXIMIZE;
+      fsBtn.title = 'Fullscreen';
+    }
+  }, true);
 }
 
 // ===== START APP =====
 document.addEventListener('DOMContentLoaded', () => {
-  initializeApp();
+  void initializeApp();
 });

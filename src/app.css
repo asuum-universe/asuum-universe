@@ -62,7 +62,8 @@ a{text-decoration:none;color:inherit}
 .main-area{flex:1 1 0%;min-width:0;min-height:0;position:relative;display:flex;flex-direction:column;overflow:hidden;border-radius:8px;background:var(--theme-bg);transition:background-color var(--theme-transition);margin-right:-4px}
 
 .header-area{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:50;width:96%;max-width:960px;pointer-events:none;display:flex;justify-content:center;transition:opacity .3s ease,transform .3s ease}
-.header-area .header-container,.header-area .tabs-float-layer,.header-area .tab-strip,.header-area .tab-strip-scroll,.header-area .header-avatar-toggle,.header-area .tab-add-btn,.header-area .tab-pill,.header-area .open-title-wrap,.header-area .home-indicator,.header-area .tab-menu-btn,.header-area .open-title-menu-btn{pointer-events:auto}
+/* ✅ pointer-events allow-list — mobile edge slots + menu button explicitly included */
+.header-area .header-container,.header-area .tabs-float-layer,.header-area .tab-strip,.header-area .tab-strip-scroll,.header-area .header-avatar-toggle,.header-area .tab-add-btn,.header-area .tab-pill,.header-area .open-title-wrap,.header-area .home-indicator,.header-area .tab-menu-btn,.header-area .open-title-menu-btn,.header-area .header-title-area,.header-area .header-close-btn,.header-area .header-menu-btn,.header-area .header-slot-btn,.header-area .single-title-menu-btn,.header-area .single-title-input{pointer-events:auto}
 .header-area.header-hidden{opacity:0;pointer-events:none!important;transform:translateX(-50%) translateY(-10px)}
 
 .main-panel{flex:1 1 0%;width:100%;height:100%;min-height:0;min-width:0;overflow:hidden;position:relative}
