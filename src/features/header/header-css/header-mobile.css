@@ -2,21 +2,22 @@
    header-mobile.css — MOBILE OVERRIDE LAYER ONLY
    Must load AFTER header-main.css.
    --------------------------------------------------------------------------
-   · Header balanced: max-width 350px, 35px gap each side
-   · Avatar hero: 46×46
-   · Arrow: top:19px FIXED — NEVER moves
+   · Header: max-width 350px, 35px gap each side
+   · Patla height: 32px (pehle 38px tha) · Hero height: 54px
+   · Header thoda upar: top 2px (pehle 4px tha)
+   · Arrow: top:16px FIXED (32px height center) — NEVER moves
    ========================================================================== */
 
 @media(max-width:768px){
 
-  /* ── HEADER AREA: thoda kam wide ── */
+  /* ── HEADER AREA: thoda upar shift ── */
   .header-area{
     position:absolute;
-    top:4px;
+    top:2px;                    /* ✅ pehle 4px tha — thoda upar */
     left:50%;
     transform:translateX(-50%);
-    width:calc(100% - 70px);   /* 35px gap each side (pehle 30px tha) */
-    max-width:350px;            /* ✅ pehle 380px tha */
+    width:calc(100% - 70px);
+    max-width:350px;
     padding:0 6px;
     margin:0;
     z-index:100;
@@ -24,11 +25,11 @@
   }
   .header-area.header-hidden{opacity:0;pointer-events:none!important;transform:translateX(-50%) translateY(-10px)}
 
-  /* ── HEADER CONTAINER ── */
+  /* ── HEADER CONTAINER: patla state thoda aur patla ── */
   .header-container{
     width:100%;
-    max-width:350px;            /* ✅ pehle 380px tha */
-    height:38px;
+    max-width:350px;
+    height:32px;                /* ✅ pehle 38px tha */
     padding:0 6px;
     border-radius:12px;
     position:relative;
@@ -38,7 +39,9 @@
     height:54px;padding:0 8px;border-radius:15px;
   }
   .header-area.welcome-header.welcome-collapsed .header-container{
-    height:38px;padding:0 6px;border-radius:12px;
+    height:32px;                /* ✅ pehle 38px tha */
+    padding:0 6px;
+    border-radius:12px;
   }
 
   /* ── REOPEN LINE / ARROW ── */
@@ -52,16 +55,18 @@
   }
   .reopen-line::before{height:4px}
   .reopen-line::after{width:28px;height:18px;margin-left:-14px;top:4px}
-  .header-area.header-closed .reopen-line{top:6px;transform:translateX(-50%) scaleX(1);opacity:1;pointer-events:auto}
+  .header-area.header-closed .reopen-line{top:5px;transform:translateX(-50%) scaleX(1);opacity:1;pointer-events:auto}
   .header-area:not(.header-closed) .reopen-line{top:-8px;transform:translateX(-50%) scaleX(.6);opacity:0;pointer-events:none}
   .reopen-arrow-icon{width:28px;height:18px;margin-left:-14px;top:4px;padding-bottom:3px}
   .reopen-arrow-icon svg{width:12px;height:7px}
 
-  /* ── ARROW: PERMANENTLY FIXED at top:19px ── */
+  /* ── ARROW: PERMANENTLY FIXED at top:16px ──
+     ✅ 32px height ka exact center = 16px
+     ✅ Header patla/mota → arrow HILTA NAHI */
   .header-close-btn{
     display:flex!important;
     position:absolute;right:6px;
-    top:19px;
+    top:16px;                   /* ✅ pehle 19px tha, ab 32px center */
     transform:translateY(-50%) scale(1);
     width:28px;height:28px;
     border:none;background:rgba(255,255,255,.04);border-radius:7px;
@@ -85,7 +90,7 @@
   /* ── LEFT RESERVED SLOT ── */
   .header-slot-btn{
     display:flex!important;align-items:center;justify-content:center;
-    position:absolute;top:19px;transform:translateY(-50%);
+    position:absolute;top:16px;transform:translateY(-50%);  /* ✅ pehle 19px tha */
     left:6px;
     width:28px;height:28px;min-width:28px;padding:0;
     border:none;border-radius:7px;
@@ -149,23 +154,22 @@
   .single-title-menu-btn{opacity:1;width:18px;height:18px}
   .single-title-menu-btn svg{width:12px;height:12px}
 
-  /* ── Content padding ── */
-  .main-area .main-panel.chat-active .chat-screen{padding-top:50px}
+  /* ── Content padding (header upar + patla → kam padding) ── */
+  .main-area .main-panel.chat-active .chat-screen{padding-top:44px}
   .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:12px}
 
-  /* ── THREE-LINE MENU: synced with chat-mobile.css ── */
-  .mm-wrap{top:4px!important;right:6px!important;z-index:200!important}
+  /* ── THREE-LINE MENU ── */
+  .mm-wrap{top:2px!important;right:6px!important;z-index:200!important}
 
-  .hdr-toast{top:56px;font-size:11.5px;padding:7px 15px}
+  .hdr-toast{top:52px;font-size:11.5px;padding:7px 15px}
 }
 
 @media(max-width:380px){
-  /* ── Smaller phones: slightly adjusted ── */
-  .header-area{width:calc(100% - 50px);max-width:290px;padding:0 4px}
-  .header-container{padding:0 5px;max-width:290px}
+  .header-area{top:2px;width:calc(100% - 50px);max-width:290px;padding:0 4px}
+  .header-container{padding:0 5px;max-width:290px;height:32px}
 
-  .header-close-btn{right:4px;top:19px}
-  .header-slot-btn{left:4px;top:19px}
+  .header-close-btn{right:4px;top:16px}
+  .header-slot-btn{left:4px;top:16px}
 
   .header-avatar-toggle{left:5px}
   .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:5px}
@@ -174,4 +178,7 @@
   .header-title-area{width:calc(100% - 56px)}
   .single-title-text{font-size:.72rem}
   .single-title-input{min-width:55px}
+
+  .main-area .main-panel.chat-active .chat-screen{padding-top:42px}
+  .mm-wrap{top:2px!important;right:5px!important}
 }
