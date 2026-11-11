@@ -1,14 +1,13 @@
 /**
- * sidebar-ui.ts — ASUUM SIDEBAR · PRO MINIMAL
+ * sidebar-ui.ts — ASUUM SIDEBAR · PRO MINIMAL v2
  *
- * GUARANTEES
- *  1. Toggle button ALWAYS opens/closes (capture-phase, delegated, de-duped).
- *  2. Clicks inside the drawer NEVER close the drawer.
- *  3. Drawer closes only via: toggle, outside content, Escape.
+ *  1. Toggle always works (capture-phase, delegated, de-duped, keyboard).
+ *  2. Clicks inside the drawer never close the drawer.
+ *  3. Drawer closes only via toggle / outside press / Escape.
  *  4. Row menu opens ABOVE its own three-dots, inside drawer bounds.
- *  5. Row menu / bulk menu close on ANY press outside them — sidebar empty space,
- *     another row, chat screen, welcome screen, anywhere.
- *  6. Swipe reacts to real horizontal drags only; a plain tap changes nothing.
+ *  5. Any press outside an open popup dismisses it (capture phase).
+ *  6. Drag-to-open follows the finger; a plain tap changes nothing.
+ *  7. Outside scrim is fully transparent — zero shadow, zero tint.
  */
 import { getAllSessions, onHistoryChange, loadSession, startNewChat, getCurrentSession, renameSession, deleteSession, ChatSession } from '../../chat-screen/services/chat-store';
 import { getAllTabs, closeTab, setActiveWorkspaceFilter, onTabsChange } from '../../header/services/header-tabs-store';
@@ -16,7 +15,7 @@ import { setExplicitNewTabClicked, clearInjectedColor } from '../../welcome-scre
 
 /* ───────────────────────── STATE ───────────────────────── */
 let sidebarEl: HTMLElement | null = null;
-let overlayEl: HTMLElement | null = null;
+let scrimEl: HTMLElement | null = null;
 let menuEl: HTMLElement | null = null;
 let menuAnchor: HTMLElement | null = null;
 let bulkMenuEl: HTMLElement | null = null;
@@ -43,6 +42,8 @@ const ICON_SAVE = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" s
 const ICON_CANCEL = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const ICON_CHAT = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 const ICON_CHECK = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const ICON_TICK_SM = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const ICON_UNTICK = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/></svg>`;
 const ICON_TRASH_LG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 
 /* ───────────────────────── HELPERS ───────────────────────── */
@@ -70,34 +71,32 @@ function toggleSidebarTheme(): void {
   try { localStorage.setItem(SIDEBAR_THEME_KEY, next); } catch {}
 }
 
-/* ───────────────────────── OUTSIDE SCRIM ───────────────────────── */
-function ensureOverlay(): void {
-  if (overlayEl) return;
-  overlayEl = document.createElement('div');
-  overlayEl.className = 'sidebar-mobile-overlay';
-  overlayEl.setAttribute('aria-hidden', 'true');
-  overlayEl.addEventListener('click', (e) => { e.stopPropagation(); closeSidebar(); });
-  document.body.appendChild(overlayEl);
+/* ─────────── INVISIBLE HIT-AREA · no shadow, no tint, no blur ─────────── */
+function ensureScrim(): void {
+  if (scrimEl) return;
+  scrimEl = document.createElement('div');
+  scrimEl.className = 'sidebar-mobile-overlay';
+  scrimEl.setAttribute('aria-hidden', 'true');
+  scrimEl.addEventListener('click', (e) => { e.stopPropagation(); closeSidebar(); });
+  document.body.appendChild(scrimEl);
 }
-function syncOverlayPosition(): void {
-  if (overlayEl) overlayEl.style.left = `${drawerWidth()}px`;
+function syncScrimPosition(): void {
+  if (scrimEl) scrimEl.style.left = `${drawerWidth()}px`;
 }
-function showOverlay(): void {
-  ensureOverlay();
-  syncOverlayPosition();
-  overlayEl!.style.display = 'block';
-  overlayEl!.style.opacity = '';
-  overlayEl!.style.pointerEvents = '';
-  requestAnimationFrame(() => overlayEl?.classList.add('visible'));
+function showScrim(): void {
+  ensureScrim();
+  syncScrimPosition();
+  scrimEl!.style.display = 'block';
+  scrimEl!.style.opacity = '1';
+  scrimEl!.style.pointerEvents = '';
+  requestAnimationFrame(() => scrimEl?.classList.add('visible'));
 }
-function hideOverlay(): void {
-  if (!overlayEl) return;
-  const el = overlayEl;
+function hideScrim(): void {
+  if (!scrimEl) return;
+  const el = scrimEl;
   el.classList.remove('visible');
   el.style.pointerEvents = 'none';
-  setTimeout(() => {
-    if (!el.classList.contains('visible')) { el.style.display = 'none'; el.style.opacity = ''; }
-  }, 240);
+  setTimeout(() => { if (!el.classList.contains('visible')) el.style.display = 'none'; }, 220);
 }
 
 /* ───────────────────────── OPEN / CLOSE ───────────────────────── */
@@ -108,7 +107,7 @@ function openSidebar(): void {
   sidebarEl.classList.remove('dragging');
   sidebarEl.classList.add('expanded');
   syncToggleAria();
-  if (isMobile()) showOverlay(); else hideOverlay();
+  if (isMobile()) showScrim(); else hideScrim();
 }
 function closeSidebar(): void {
   if (!sidebarEl) return;
@@ -119,7 +118,7 @@ function closeSidebar(): void {
   sidebarEl.style.transform = '';
   sidebarEl.classList.remove('dragging', 'expanded');
   syncToggleAria();
-  hideOverlay();
+  hideScrim();
 }
 function toggleSidebar(): void {
   const now = Date.now();
@@ -136,7 +135,7 @@ function syncToggleAria(): void {
   btn.title = open ? 'Collapse sidebar' : 'Expand sidebar';
 }
 
-/* ───────────────────────── GESTURES (drag only) ───────────────────────── */
+/* ───────────────── GESTURES · finger-tracked drawer ───────────────── */
 function setupGestures(): void {
   let tracking = false, dragging = false;
   let startX = 0, startY = 0, baseTranslate = 0, width = 276;
@@ -171,10 +170,10 @@ function setupGestures(): void {
       dragging = true;
       closeMenu(); closeBulkMenu();
       sidebarEl.classList.add('dragging');
-      ensureOverlay(); syncOverlayPosition();
-      overlayEl!.style.display = 'block';
-      overlayEl!.classList.remove('visible');
-      overlayEl!.style.pointerEvents = 'none';
+      ensureScrim(); syncScrimPosition();
+      scrimEl!.style.display = 'block';
+      scrimEl!.classList.remove('visible');
+      scrimEl!.style.pointerEvents = 'none';
     }
 
     const now = performance.now();
@@ -183,14 +182,14 @@ function setupGestures(): void {
 
     const translate = Math.max(-width, Math.min(0, baseTranslate + dx));
     sidebarEl.style.transform = `translateX(${translate}px)`;
-    if (overlayEl) overlayEl.style.opacity = String(((translate + width) / width) * 0.32);
+    /* No opacity / tint writes — the scrim stays completely invisible. */
   }, { passive: true });
 
   const finish = (): void => {
     if (!tracking) return;
     const wasDragging = dragging;
     tracking = false; dragging = false;
-    if (!sidebarEl || !wasDragging) return;   // plain tap → no state change
+    if (!sidebarEl || !wasDragging) return;   // plain tap → nothing changes
 
     suppressUntil = Date.now() + 320;
     sidebarEl.classList.remove('dragging');
@@ -215,7 +214,7 @@ function setupGestures(): void {
 export function initializeSidebarUI(): void {
   if (booted) return;
   booted = true;
-  console.log('📋 Sidebar UI (Pro Minimal — tight rhythm · press-anywhere dismiss)');
+  console.log('📋 Sidebar UI (Pro Minimal v2 — no count · clean labels · zero scrim)');
 
   sidebarEl = document.getElementById('sidebar');
   if (!sidebarEl) { booted = false; return; }
@@ -227,11 +226,11 @@ export function initializeSidebarUI(): void {
   document.getElementById('sidebarCloseBtn')?.remove();
   document.querySelector('.sidebar-close-btn')?.remove();
 
-  ensureOverlay();
+  ensureScrim();
   setupGestures();
   syncToggleAria();
 
-  /* ✅ TOGGLE — capture + delegated + keyboard */
+  /* Toggle — capture + delegated + keyboard */
   const toggleHandler = (e: Event): void => {
     const t = e.target as HTMLElement | null;
     if (!t?.closest?.('#sidebarToggle,.sb-toggle-btn')) return;
@@ -247,13 +246,7 @@ export function initializeSidebarUI(): void {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleSidebar(); }
   }, true);
 
-  /**
-   * ✅ PRESS-ANYWHERE DISMISS — capture phase.
-   * Runs before every target handler, so stopPropagation inside the drawer
-   * can never block it. Any press outside an open popup closes that popup:
-   * sidebar empty space, another chat row, profile, chat screen, welcome screen.
-   * The popup's own trigger is excluded so its toggle behaviour stays intact.
-   */
+  /* Press-anywhere dismiss — capture phase beats every stopPropagation */
   const dismissOnPress = (e: Event): void => {
     if (Date.now() < suppressUntil) return;
     const t = e.target as HTMLElement | null;
@@ -264,7 +257,6 @@ export function initializeSidebarUI(): void {
   document.addEventListener('pointerdown', dismissOnPress, true);
   document.addEventListener('touchstart', dismissOnPress, { capture: true, passive: true });
 
-  /* Everything inside the drawer stops here — cannot reach the outside handler */
   const guard = (e: Event): void => { e.stopPropagation(); };
   sidebarEl.addEventListener('mousedown', guard);
   sidebarEl.addEventListener('touchstart', guard, { passive: true });
@@ -281,7 +273,7 @@ export function initializeSidebarUI(): void {
   onHistoryChange(() => { if (!selectionMode) renderAll(); });
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
-  /* ✅ OUTSIDE CLICK — only place allowed to close the DRAWER */
+  /* Outside press — the only place that closes the DRAWER */
   document.addEventListener('click', (e: Event) => {
     if (Date.now() < suppressUntil) return;
     const target = e.target as HTMLElement;
@@ -289,7 +281,7 @@ export function initializeSidebarUI(): void {
     if (sidebarEl && sidebarEl.contains(target)) return;
     if (menuEl && menuEl.contains(target)) return;
     if (bulkMenuEl && bulkMenuEl.contains(target)) return;
-    if (overlayEl && overlayEl.contains(target)) return;
+    if (scrimEl && scrimEl.contains(target)) return;
     if (target.closest?.('.cr-overlay,.mh-overlay,.mm-wrap')) return;
     if (isOpen()) closeSidebar();
   });
@@ -309,9 +301,9 @@ export function initializeSidebarUI(): void {
   document.querySelector('.chat-list-area')?.addEventListener('scroll', scheduleReposition, { passive: true });
 
   window.addEventListener('resize', () => {
-    syncOverlayPosition();
-    if (!isMobile()) hideOverlay();
-    else if (isOpen()) showOverlay();
+    syncScrimPosition();
+    if (!isMobile()) hideScrim();
+    else if (isOpen()) showScrim();
     scheduleReposition();
   });
 }
@@ -350,38 +342,52 @@ function updateSelectionUI(): void {
     item.classList.toggle('selected', on);
   });
   const countEl = document.getElementById('bulkCount');
-  const deleteBtn = document.getElementById('bulkDeleteBtn');
-  if (countEl) countEl.textContent = `${selectedIds.size}`;
+  const deleteBtn = document.getElementById('bulkDeleteBtn') as HTMLButtonElement | null;
+  if (countEl) {
+    const n = selectedIds.size;
+    countEl.textContent = n === 0 ? 'None' : `${n}`;
+    countEl.setAttribute('aria-label', `${n} chat${n === 1 ? '' : 's'} selected`);
+  }
   if (deleteBtn) {
-    deleteBtn.style.opacity = selectedIds.size > 0 ? '1' : '0.32';
-    deleteBtn.style.pointerEvents = selectedIds.size > 0 ? 'auto' : 'none';
+    const has = selectedIds.size > 0;
+    deleteBtn.style.opacity = has ? '1' : '0.34';
+    deleteBtn.style.pointerEvents = has ? 'auto' : 'none';
+    deleteBtn.disabled = !has;
   }
 }
+function allSelected(): boolean {
+  const ids = Array.from(document.querySelectorAll('.chat-item')).map(el => (el as HTMLElement).dataset.id || '').filter(Boolean);
+  return ids.length > 0 && ids.every(id => selectedIds.has(id));
+}
 function toggleSelectAll(): void {
-  const ids = Array.from(document.querySelectorAll('.chat-item')).map(el => (el as HTMLElement).dataset.id || '');
-  const all = ids.length > 0 && ids.every(id => selectedIds.has(id));
-  if (all) selectedIds.clear(); else ids.forEach(id => { if (id) selectedIds.add(id); });
+  const ids = Array.from(document.querySelectorAll('.chat-item')).map(el => (el as HTMLElement).dataset.id || '').filter(Boolean);
+  if (allSelected()) selectedIds.clear();
+  else ids.forEach(id => selectedIds.add(id));
   updateSelectionUI();
   closeBulkMenu();
 }
 
-/* ───────────────────────── BULK DROPDOWN ───────────────────────── */
+/* ───────────────── BULK MENU · professional labels ───────────────── */
 function openBulkMenu(anchor: HTMLElement): void {
   closeBulkMenu(); closeMenu();
   if (!sidebarEl) return;
+
+  const every = allSelected();
   bulkMenuEl = document.createElement('div');
   bulkMenuEl.className = 'bulk-dropdown';
-  const items = document.querySelectorAll('.chat-item');
-  const all = items.length > 0 && selectedIds.size === items.length;
-  bulkMenuEl.innerHTML = `<button class="bulk-dropdown-item" type="button">${all ? 'Deselect All' : 'Select All'}</button>`;
+  bulkMenuEl.setAttribute('role', 'menu');
+  bulkMenuEl.innerHTML = every
+    ? `<button class="bulk-dropdown-item" type="button" role="menuitem" data-act="clear">${ICON_UNTICK}<span>Clear selection</span></button>`
+    : `<button class="bulk-dropdown-item" type="button" role="menuitem" data-act="all">${ICON_TICK_SM}<span>Select all chats</span></button>`;
   sidebarEl.appendChild(bulkMenuEl);
 
   const host = sidebarEl.getBoundingClientRect();
   const r = anchor.getBoundingClientRect();
-  const mw = bulkMenuEl.offsetWidth || 130;
+  const mw = bulkMenuEl.offsetWidth || 152;
+  const mh = bulkMenuEl.offsetHeight || 34;
   const left = Math.max(7, Math.min(r.right - host.left - mw, host.width - mw - 7));
   let top = r.bottom - host.top + 3;
-  if (top + 38 > host.height - 7) top = r.top - host.top - 38;
+  if (top + mh > host.height - 7) top = r.top - host.top - mh - 3;
   bulkMenuEl.style.left = `${left}px`;
   bulkMenuEl.style.top = `${top}px`;
   requestAnimationFrame(() => bulkMenuEl?.classList.add('visible'));
@@ -398,7 +404,7 @@ function showDeleteConfirmation(): void {
   closeBulkMenu();
   const overlay = document.createElement('div');
   overlay.className = 'bulk-delete-overlay';
-  overlay.innerHTML = `<div class="bulk-delete-modal"><div class="bdm-icon-wrap">${ICON_TRASH_LG}</div><h3 class="bdm-title">Delete ${count} Chat${count > 1 ? 's' : ''}?</h3><p class="bdm-desc">This action is permanent and cannot be undone.</p><div class="bdm-actions"><button class="bdm-btn bdm-cancel" type="button">Cancel</button><button class="bdm-btn bdm-confirm" type="button">Delete Permanently</button></div></div>`;
+  overlay.innerHTML = `<div class="bulk-delete-modal" role="dialog" aria-modal="true"><div class="bdm-icon-wrap">${ICON_TRASH_LG}</div><h3 class="bdm-title">Delete ${count} chat${count > 1 ? 's' : ''}?</h3><p class="bdm-desc">This permanently removes ${count === 1 ? 'this conversation' : 'these conversations'} and cannot be undone.</p><div class="bdm-actions"><button class="bdm-btn bdm-cancel" type="button">Cancel</button><button class="bdm-btn bdm-confirm" type="button">Delete ${count > 1 ? 'all' : 'chat'}</button></div></div>`;
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add('visible'));
 
@@ -408,6 +414,7 @@ function showDeleteConfirmation(): void {
   overlay.querySelector('.bdm-confirm')?.addEventListener('click', (e) => { e.stopPropagation(); executeBulkDelete(); dismiss(); });
   const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') { dismiss(); document.removeEventListener('keydown', onKey); } };
   document.addEventListener('keydown', onKey);
+  (overlay.querySelector('.bdm-cancel') as HTMLButtonElement | null)?.focus();
 }
 function executeBulkDelete(): void {
   Array.from(selectedIds).forEach(id => {
@@ -428,9 +435,10 @@ function renderAll(): void {
   const sorted = [...getAllSessions()].sort((a, b) => b.updatedAt - a.updatedAt);
   let html = '';
   if (selectionMode) {
-    html += `<div class="bulk-bar-sticky"><button class="bb-cancel" id="bulkCancelBtn" type="button">Cancel</button><span class="bb-count" id="bulkCount">${selectedIds.size}</span><button class="bb-delete" id="bulkDeleteBtn" type="button" title="Delete selected">${ICON_DELETE}<span class="bb-delete-text">Delete</span></button><button class="bb-dots" id="bulkDotsBtn" type="button" title="More options">${ICON_DOTS}</button></div>`;
+    html += `<div class="bulk-bar-sticky"><button class="bb-cancel" id="bulkCancelBtn" type="button">Cancel</button><span class="bb-count" id="bulkCount">0</span><button class="bb-delete" id="bulkDeleteBtn" type="button" title="Delete selected">${ICON_DELETE}<span class="bb-delete-text">Delete</span></button><button class="bb-dots" id="bulkDotsBtn" type="button" title="Selection options" aria-label="Selection options">${ICON_DOTS}</button></div>`;
   } else {
-    html += `<div class="bulk-bar-sticky bulk-bar-normal"><span class="section-label">All Chats</span><span class="section-count">${sorted.length}</span></div>`;
+    /* ✅ No total-count badge — clean label only */
+    html += `<div class="bulk-bar-sticky bulk-bar-normal"><span class="section-label">All Chats</span></div>`;
   }
   html += `<div class="chat-list-area">`;
   if (sorted.length > 0) {
@@ -440,7 +448,7 @@ function renderAll(): void {
         const active = !selectionMode && s.id === getCurrentSession()?.id ? ' active' : '';
         const checked = selectionMode && selectedIds.has(s.id);
         if (selectionMode) {
-          html += `<div class="chat-item${checked ? ' selected' : ''}" data-id="${esc(s.id)}"><span class="select-circle${checked ? ' checked' : ''}">${checked ? ICON_CHECK : ''}</span><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span></div>`;
+          html += `<div class="chat-item${checked ? ' selected' : ''}" data-id="${esc(s.id)}" role="option" aria-selected="${checked}"><span class="select-circle${checked ? ' checked' : ''}">${checked ? ICON_CHECK : ''}</span><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span></div>`;
         } else {
           html += `<div class="chat-item${active}" data-id="${esc(s.id)}"><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span><button class="chat-item-menu" type="button" title="Chat options" aria-label="Chat options">${ICON_DOTS}</button></div>`;
         }
@@ -484,7 +492,12 @@ function wireEvents(): void {
   if (selectionMode) {
     document.getElementById('bulkCancelBtn')?.addEventListener('click', (e) => { e.stopPropagation(); exitSelectionMode(); });
     document.getElementById('bulkDeleteBtn')?.addEventListener('click', (e) => { e.stopPropagation(); showDeleteConfirmation(); });
-    document.getElementById('bulkDotsBtn')?.addEventListener('click', (e) => { e.stopPropagation(); openBulkMenu(e.currentTarget as HTMLElement); });
+    document.getElementById('bulkDotsBtn')?.addEventListener('click', (e) => {
+      e.stopImmediatePropagation(); e.preventDefault();
+      const anchor = e.currentTarget as HTMLElement;
+      if (bulkMenuEl) { closeBulkMenu(); return; }
+      openBulkMenu(anchor);
+    });
     content.querySelectorAll('.chat-item').forEach(item => {
       item.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -547,7 +560,7 @@ function wireEvents(): void {
   });
 }
 
-/* ─────────── ROW MENU · always ABOVE its dots ─────────── */
+/* ─────────── ROW MENU · above its own dots ─────────── */
 function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: string): void {
   closeMenu(); closeBulkMenu();
   if (!sidebarEl) return;
@@ -557,7 +570,8 @@ function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: stri
 
   menuEl = document.createElement('div');
   menuEl.className = 'chat-menu';
-  menuEl.innerHTML = `<button class="chat-menu-btn rename-btn" type="button">${ICON_RENAME}<span>Rename</span></button><button class="chat-menu-btn delete-btn" type="button">${ICON_DELETE}<span>Delete</span></button>`;
+  menuEl.setAttribute('role', 'menu');
+  menuEl.innerHTML = `<button class="chat-menu-btn rename-btn" type="button" role="menuitem">${ICON_RENAME}<span>Rename</span></button><button class="chat-menu-btn delete-btn" type="button" role="menuitem">${ICON_DELETE}<span>Delete</span></button>`;
   sidebarEl.appendChild(menuEl);
   positionMenu();
 
@@ -585,15 +599,15 @@ function positionMenu(): void {
 
   const host = sidebarEl.getBoundingClientRect();
   const r = menuAnchor.getBoundingClientRect();
-  const mw = menuEl.offsetWidth || 148;
-  const mh = menuEl.offsetHeight || 72;
+  const mw = menuEl.offsetWidth || 146;
+  const mh = menuEl.offsetHeight || 70;
   const pad = 7, gap = 3;
 
   let left = r.right - host.left - mw;
   left = Math.max(pad, Math.min(left, host.width - mw - pad));
 
-  let top = r.top - host.top - mh - gap;          // ABOVE the dots
-  if (top < pad) top = r.bottom - host.top + gap; // fallback only if no room
+  let top = r.top - host.top - mh - gap;
+  if (top < pad) top = r.bottom - host.top + gap;
   top = Math.max(pad, Math.min(top, host.height - mh - pad));
 
   menuEl.style.left = `${left}px`;
