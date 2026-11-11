@@ -1,0 +1,82 @@
+/* ==========================================================================
+   chat-mobile.css — MOBILE CHAT + THREE-LINE MENU OVERRIDES
+   Must load AFTER chat-main.css.
+   --------------------------------------------------------------------------
+   · Three-line menu (.mm-wrap): tight top-right corner (top:4px, right:6px)
+   · Sidebar-palette menu window, zero shadow, zero blur
+   · Chat bubbles, timeline, modals responsive adjustments
+   ========================================================================== */
+
+@media(max-width:768px){
+
+  /* ── CHAT MESSAGES ── */
+  .chat-messages{width:95%;padding:3px 0 5px}
+  .message-row.user{padding-left:8%}
+  .message-bubble{font-size:.86rem;padding:6px 11px}
+  .message-row.ai .message-bubble{padding:1px 0 0 0}
+  .chat-end-spacer{height:5vh;min-height:24px}
+  .timeline-system{bottom:72px}
+  .timeline-system:hover .timeline-window{width:160px}
+  .scroll-to-bottom-btn{bottom:56px;right:10px;width:26px;height:26px}
+
+  /* ── THREE-LINE MENU · TIGHT TOP-RIGHT CORNER ──
+     Desktop: top:6px, right:14px
+     Mobile:  top:4px, right:6px   ← aur upar + aur right
+     Menu button corner ke bilkul paas, menu glued underneath. */
+  .mm-wrap{
+    top:4px!important;
+    right:6px!important;
+    z-index:300!important;
+  }
+  .mm-btn{
+    width:28px!important;height:28px!important;
+    gap:3px!important;
+    background:transparent!important;border:none!important;
+    border-radius:50%!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  }
+  .mm-btn:hover{background:var(--theme-surface-hover)!important}
+  .mm-line{width:12px!important;height:2px!important;border-radius:0!important}
+  .mm-wrap.open .mm-line:nth-child(1){transform:translateY(5px) rotate(45deg)!important}
+  .mm-wrap.open .mm-line:nth-child(3){transform:translateY(-5px) rotate(-45deg)!important}
+
+  .mm-menu{
+    min-width:176px!important;
+    max-width:min(240px,84vw)!important;
+    right:0!important;
+    top:calc(100% + 3px)!important;
+    border-radius:11px!important;
+    padding:5px!important;
+    box-shadow:none!important;filter:none!important;
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  }
+  .mm-menu.flip-up{top:auto!important;bottom:calc(100% + 3px)!important}
+  .mm-item{padding:9px 12px!important;font-size:12.5px!important;border-radius:8px!important;gap:10px!important}
+  .mm-item svg{width:15px!important;height:15px!important}
+  .mm-theme-toggle{margin-top:2px!important}
+
+  /* ── CHAT RULES MODAL (mobile) ── */
+  .cr-modal{border-radius:14px}
+  .cr-header{padding:16px 18px}
+  .cr-body{padding:14px 18px}
+  .cr-footer{padding:12px 18px}
+
+  /* ── MODEL HUB MODAL (mobile) ── */
+  .mh-modal{border-radius:14px}
+  .mh-header{padding:14px 18px}
+  .mh-categories{padding:8px 18px}
+  .mh-body{padding:14px 18px 18px}
+  .mh-providers-grid{grid-template-columns:1fr}
+}
+
+@media(max-width:380px){
+  /* ── Even tighter on small phones ── */
+  .mm-wrap{top:3px!important;right:5px!important}
+  .mm-menu{min-width:160px!important;max-width:min(220px,82vw)!important}
+  .scroll-to-bottom-btn{right:8px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .mm-wrap,.mm-btn,.mm-line,.mm-menu,.mm-item,.cr-modal,.mh-modal{animation:none!important;transition:none!important}
+}

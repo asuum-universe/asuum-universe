@@ -105,7 +105,7 @@
 .scroll-to-bottom-btn svg{width:12px;height:12px}
 
 /* ==========================================================================
-   THREE-LINE MENU
+   THREE-LINE MENU (DESKTOP BASE)
    · Window uses the SIDEBAR palette (not the chat surface palette)
    · Dark / Light follows the MAIN screen state  →  body.main-dark
    · Glued 2px under the button · ZERO shadow / blur / tint
@@ -252,34 +252,6 @@ body.main-dark .mm-menu{
 .mh-body::-webkit-scrollbar-thumb{background:#d4d4d8;border-radius:3px}
 .mh-providers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 
-@media(max-width:768px){
-.chat-messages{width:95%;padding:3px 0 5px}
-.message-row.user{padding-left:8%}
-.message-bubble{font-size:.86rem;padding:6px 11px}
-.message-row.ai .message-bubble{padding:1px 0 0 0}
-.chat-end-spacer{height:5vh;min-height:24px}
-.timeline-system{bottom:72px}
-.timeline-system:hover .timeline-window{width:160px}
-.scroll-to-bottom-btn{bottom:56px;right:10px;width:26px;height:26px}
-
-/* ✅ MOBILE MENU — free button, window glued under it, sidebar palette, zero shadow */
-.mm-wrap{top:6px!important;right:10px!important;z-index:300!important}
-.mm-btn{width:28px!important;height:28px!important;gap:3px!important;background:transparent!important;border:none!important;border-radius:50%!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-.mm-btn:hover{background:var(--theme-surface-hover)!important}
-.mm-line{width:12px!important;height:2px!important;border-radius:0!important}
-.mm-wrap.open .mm-line:nth-child(1){transform:translateY(5px) rotate(45deg)!important}
-.mm-wrap.open .mm-line:nth-child(3){transform:translateY(-5px) rotate(-45deg)!important}
-.mm-menu{min-width:176px!important;max-width:min(240px,84vw)!important;right:0!important;top:calc(100% + 3px)!important;border-radius:11px!important;padding:5px!important;box-shadow:none!important;filter:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-.mm-menu.flip-up{top:auto!important;bottom:calc(100% + 3px)!important}
-.mm-item{padding:9px 12px!important;font-size:12.5px!important;border-radius:8px!important;gap:10px!important}
-.mm-item svg{width:15px!important;height:15px!important}
-.mm-theme-toggle{margin-top:2px!important}
-
-.cr-modal{border-radius:14px}.cr-header{padding:16px 18px}.cr-body{padding:14px 18px}.cr-footer{padding:12px 18px}
-.mh-modal{border-radius:14px}.mh-header{padding:14px 18px}.mh-categories{padding:8px 18px}.mh-body{padding:14px 18px 18px}
-.mh-providers-grid{grid-template-columns:1fr}
-}
-@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 .main-panel.chat-active{background:transparent!important}
 .main-panel.chat-active .chat-screen{background:var(--theme-bg)!important}
 .main-panel.chat-active .chat-screen::after{display:none!important}
@@ -295,3 +267,5 @@ body.main-dark .mm-menu{
 .timeline-system:not(.laser-shimmer-active) .timeline-pillar::after{display:none}
 .timeline-system:not(.laser-shimmer-active) .timeline-dash{background:var(--theme-text-muted);opacity:.4;transition:background-color var(--theme-transition)}
 .timeline-system:not(.laser-shimmer-active) .timeline-item.active .timeline-dash{background:var(--theme-text-primary);height:3px;width:9px;opacity:1}
+
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

@@ -14,6 +14,7 @@ import './app.css';
 import './features/welcome-screen/welcome-css/welcome-main.css';
 import './features/input-box/input-box-css/input-main.css';
 import './features/chat-screen/chat-screen-css/chat-main.css';
+import './features/chat-screen/chat-screen-css/chat-mobile.css';    /* ✅ NEW — mobile chat + menu overrides */
 
 /* Sidebar — base/desktop, then mobile overrides */
 import './features/sidebar/sidebar-css/sidebar-main.css';
