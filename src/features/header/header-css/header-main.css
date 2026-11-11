@@ -1,4 +1,4 @@
-/* header-main.css — THEME-PROOF HEADER + PURE WHITE TITLE */
+/* header-main.css — THEME-PROOF HEADER + PURE WHITE TITLE + MOBILE EDGE SLOTS */
 
 .header-area{display:flex;justify-content:center;position:absolute;top:4px;left:50%;transform:translateX(-50%);width:90%;max-width:760px;padding:0 8px;margin:0;z-index:100}
 
@@ -181,27 +181,95 @@
 .hdr-toast{position:fixed;top:48px;left:50%;transform:translateX(-50%) translateY(-10px);background:#0a0a0a;border:1px solid rgba(255,255,255,0.06);color:#e5e7eb;padding:8px 18px;border-radius:9px;font-family:'Inter',sans-serif;font-size:12px;font-weight:500;letter-spacing:0.01em;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,0.3);opacity:0;pointer-events:none;z-index:10003;transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.22,1,0.36,1)}
 .hdr-toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
 
+/* ==========================================================================
+   MOBILE-ONLY EDGE CONTROLS
+   Default = hidden, so DESKTOP stays 100% unchanged.
+   ========================================================================== */
+.header-slot-btn,.header-menu-btn{display:none!important}
+
+/* Header menu popup (only reachable from the mobile button) — zero shadow */
+.header-menu-pop{position:fixed;z-index:10004;min-width:176px;max-width:min(230px,84vw);padding:4px;background:#0a0a0a;border:1px solid rgba(255,255,255,.1);border-radius:10px;box-shadow:none;display:flex;flex-direction:column;gap:1px;font-family:'Inter',sans-serif;animation:hdrMenuIn .16s cubic-bezier(.22,1,.36,1)}
+.header-menu-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border:none;background:transparent;border-radius:7px;font-family:inherit;font-size:12.5px;font-weight:500;color:#d4d4d8;cursor:pointer;width:100%;text-align:left;position:relative;overflow:hidden;transition:background .15s ease,color .15s ease,padding-left .15s ease}
+.header-menu-item::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:55%;background:#fafafa;border-radius:0 2px 2px 0;transition:width .16s ease}
+.header-menu-item:hover::before{width:2.5px}
+.header-menu-item:hover{background:rgba(255,255,255,.07);color:#fafafa;padding-left:13px}
+.header-menu-item svg{width:13px;height:13px;color:#71717a;flex-shrink:0;transition:color .15s ease}
+.header-menu-item:hover svg{color:#fafafa}
+.header-menu-item.danger{color:#f87171}
+.header-menu-item.danger svg{color:#f87171}
+.header-menu-item.danger::before{background:#ef4444}
+.header-menu-item.danger:hover{background:rgba(239,68,68,.12);color:#fca5a5}
+.header-menu-item.danger:hover svg{color:#fca5a5}
+.header-menu-item[disabled]{opacity:.32;pointer-events:none}
+.header-menu-sep{height:1px;background:rgba(255,255,255,.08);margin:3px 6px}
+
 @media(max-width:768px){
-  .header-area{padding:0 6px;top:3px}
-  .header-container{border-radius:10px;height:32px;padding:0 5px}
-  .header-area.welcome-header:not(.welcome-collapsed) .header-container{height:52px;padding:0 8px;border-radius:16px}
-  .header-area.welcome-header.welcome-collapsed .header-container{height:32px;padding:0 5px;border-radius:10px}
+  /* near full-width bar so edge buttons sit at true left/right */
+  .header-area{padding:0 4px;top:4px;width:calc(100% - 10px);max-width:none}
+  .header-container{border-radius:12px;height:40px;padding:0 5px}
+  .header-area.welcome-header:not(.welcome-collapsed) .header-container{height:58px;padding:0 6px;border-radius:16px}
+  .header-area.welcome-header.welcome-collapsed .header-container{height:40px;padding:0 5px;border-radius:12px}
+
   .reopen-line{width:64px;top:5px;height:4px}
   .reopen-line::before{height:4px}
   .reopen-line::after{width:28px;height:18px;margin-left:-14px;top:4px}
   .reopen-arrow-icon{width:28px;height:18px;margin-left:-14px;top:4px;padding-bottom:3px}
   .reopen-arrow-icon svg{width:12px;height:7px}
-  .header-avatar-toggle{left:5px;width:24px;height:24px}
-  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{left:calc(50% - 20px);width:40px;height:40px}
-  .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:5px;width:24px;height:24px}
+
+  /* ── symmetric 30×30 edge buttons, perfectly centred vertically ── */
+  .header-slot-btn,.header-menu-btn{
+    display:flex!important;align-items:center;justify-content:center;
+    position:absolute;top:50%;transform:translateY(-50%);
+    width:30px;height:30px;min-width:30px;padding:0;
+    border:none;border-radius:8px;background:rgba(255,255,255,.05);
+    color:#a1a1aa;cursor:pointer;z-index:8;overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+    transition:background .18s ease,color .18s ease,transform .14s ease,opacity .3s ease;
+  }
+  .header-slot-btn{left:5px}
+  .header-menu-btn{right:5px}
+  .header-menu-btn svg{width:15px;height:15px;pointer-events:none}
+  .header-menu-btn:hover,.header-menu-btn.active{background:rgba(255,255,255,.1);color:#fff}
+  .header-menu-btn:active{transform:translateY(-50%) scale(.92)}
+  .header-menu-btn:focus-visible{outline:2px solid rgba(255,255,255,.35);outline-offset:2px}
+  /* reserved left slot — jagah hold hai, abhi kuch dikhta nahi */
+  .header-slot-btn[data-empty="true"]{background:transparent;opacity:0;pointer-events:none}
+  /* desktop collapse button replaced by the menu */
+  .header-close-btn{display:none!important}
+  .header-area.header-closed .header-slot-btn,.header-area.header-closed .header-menu-btn{display:none!important}
+
+  /* ── avatar always centred on mobile; in chat mode the title owns centre ── */
+  .header-avatar-toggle{left:50%;transform:translate(-50%,-50%);width:26px;height:26px}
+  .header-avatar-toggle:hover{transform:translate(-50%,-50%) scale(1.06)}
+  .header-avatar-toggle:active{transform:translate(-50%,-50%) scale(.94)}
+  .header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:50%;transform:translate(-50%,-50%);width:26px;height:26px}
+  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{left:50%;transform:translate(-50%,-50%);width:42px;height:42px}
+  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:hover{transform:translate(-50%,-50%) scale(1.05)}
+  .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle:active{transform:translate(-50%,-50%) scale(.95)}
+  .header-area:not(.welcome-header) .header-avatar-toggle{opacity:0;pointer-events:none}
+
   .header-area.welcome-header:not(.welcome-collapsed) .avatar-hand-left{width:7px;height:7px;right:calc(100% + 3px)}
   .header-area.welcome-header:not(.welcome-collapsed) .avatar-hand-right{width:7px;height:14px;left:calc(100% + 3px);bottom:calc(50% - 3px)}
   .capsule-eye{width:3px;height:7px}.capsule-eyes{gap:3.5px}
   .mouth{width:3.5px;height:0.8px}.mouth.happy{width:5.5px;height:2px}.mouth.excited{width:7px;height:2.5px}
-  .header-close-btn{width:24px;height:24px;right:5px}.header-close-btn svg{width:11px;height:11px}
-  .single-title-text{font-size:0.72rem;max-width:180px}
-  .single-title-input{font-size:0.72rem;max-width:180px;min-width:80px}
+
+  /* title never collides with the edge buttons */
+  .header-title-area{padding:0 40px;box-sizing:border-box}
+  .single-title-wrap{gap:4px}
+  .single-title-text{font-size:0.76rem;max-width:100%}
+  .single-title-input{font-size:0.76rem;max-width:100%;min-width:60px}
+  .single-title-menu-btn{opacity:1;width:18px;height:18px}
+  .single-title-menu-btn svg{width:12px;height:12px}
+
+  .hdr-toast{top:56px;font-size:11.5px;padding:7px 15px}
 }
+
+@media(max-width:380px){
+  .header-title-area{padding:0 36px}
+  .single-title-text{font-size:0.73rem}
+  .header-slot-btn,.header-menu-btn{width:28px;height:28px;min-width:28px}
+}
+
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:0.01ms!important}}
 
 .header-title-area.laser-shimmer-active .single-title-text{
