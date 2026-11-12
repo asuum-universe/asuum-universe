@@ -1,13 +1,18 @@
 /**
- * sidebar-gestures.ts — MOBILE-ONLY CONCERN
+ * sidebar-gestures.ts — MOBILE-ONLY TOUCH GESTURES (PRO EDITION)
  * Owns nothing but touch listeners. No DOM rendering, no state, no menus.
  * Fully destroyable → safe on HMR, resize, and re-init.
- * 
+ *
+ * GESTURES:
+ *   CLOSED → swipe RIGHT from LEFT HALF of screen → OPEN (finger tracking)
+ *   OPEN   → swipe LEFT from ANYWHERE           → CLOSE (finger tracking)
+ *
  * FEATURES:
- *   · Swipe RIGHT from left edge → OPEN sidebar (existing)
- *   · Swipe LEFT while open → CLOSE sidebar (NEW)
- *   · Smooth real-time transform tracking
- *   · Velocity-based flick detection
+ *   · Real-time finger tracking (sidebar follows finger exactly)
+ *   · Velocity-based flick detection (fast swipe = instant snap)
+ *   · Progress-based snap (release past 35% = complete the action)
+ *   · Capture-phase listeners (immune to stopPropagation guards)
+ *   · Vertical scroll cancellation (won't hijack scrolling)
  */
 export interface SidebarGestureHost {
   isMobile(): boolean;
@@ -26,7 +31,10 @@ const DRAG_START_PX = 10;
 const VERTICAL_CANCEL_PX = 14;
 const OPEN_RATIO = 0.35;
 const FLICK_VELOCITY = 0.45;
-const SKIP_SELECTOR = '.chat-input,.input-container,.message-bubble,.chat-scrollbar,.chat-scrollbar-hover-zone,.timeline-system,.mm-wrap,.cr-overlay,.mh-overlay,.sb-toggle-btn';
+const SKIP_SELECTOR =
+  '.chat-input,.input-container,.message-bubble,' +
+  '.chat-scrollbar,.chat-scrollbar-hover-zone,.timeline-system,' +
+  '.mm-wrap,.cr-overlay,.mh-overlay,.sb-toggle-btn';
 
 function point(list: TouchList, index: number): { x: number; y: number } | null {
   const t = list.item(index);
@@ -48,8 +56,13 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
   let lastT = 0;
   let velocity = 0;
 
-  const reset = (): void => { tracking = false; dragging = false; velocity = 0; };
+  const reset = (): void => {
+    tracking = false;
+    dragging = false;
+    velocity = 0;
+  };
 
+  /* ── TOUCH START · capture phase ── */
   document.addEventListener('touchstart', (e: TouchEvent) => {
     const sb = host.getSidebar();
     if (!host.isMobile() || !sb || e.touches.length !== 1) return;
@@ -59,15 +72,12 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     if (!target || target.closest(SKIP_SELECTOR)) return;
 
     const open = host.isOpen();
-    
-    /* ✅ CLOSED state: sirf left edge se right swipe track karo (open karne ke liye) */
+
     if (!open) {
-      if (pt.x > 40) return;  /* left 40px zone only */
+      /* ✅ CLOSED: swipe right from LEFT HALF of screen to open */
+      if (pt.x > window.innerWidth * 0.5) return;
     }
-    /* ✅ OPEN state: sirf agar touch sidebar ke andar ho to track karo (close karne ke liye) */
-    else {
-      if (!sb.contains(target)) return;
-    }
+    /* ✅ OPEN: swipe left from ANYWHERE to close — no restriction */
 
     tracking = true;
     dragging = false;
@@ -77,8 +87,9 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     velocity = 0;
     width = host.getWidth();
     base = open ? 0 : -width;
-  }, { passive: true, signal });
+  }, { passive: true, capture: true, signal });
 
+  /* ── TOUCH MOVE · capture phase ── */
   document.addEventListener('touchmove', (e: TouchEvent) => {
     const sb = host.getSidebar();
     if (!tracking || !sb) return;
@@ -89,8 +100,11 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     const dy = Math.abs(pt.y - startY);
 
     if (!dragging) {
+      /* Cancel if vertical scroll detected */
       if (dy > VERTICAL_CANCEL_PX && dy > Math.abs(dx)) { reset(); return; }
+      /* Wait for minimum horizontal movement before committing */
       if (Math.abs(dx) < DRAG_START_PX) return;
+      /* Cancel if more vertical than horizontal */
       if (Math.abs(dx) <= dy) { reset(); return; }
 
       dragging = true;
@@ -105,36 +119,42 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
       }
     }
 
+    /* Velocity tracking for flick detection */
     const now = performance.now();
     if (now > lastT) velocity = (pt.x - lastX) / (now - lastT);
     lastX = pt.x;
     lastT = now;
 
-    /* ✅ Smooth transform tracking — dono directions (open/close) */
+    /* ✅ Smooth finger tracking — sidebar follows finger exactly */
     const translate = Math.max(-width, Math.min(0, base + dx));
     sb.style.transform = `translateX(${translate}px)`;
-  }, { passive: true, signal });
+  }, { passive: true, capture: true, signal });
 
+  /* ── TOUCH END / CANCEL · capture phase ── */
   const finish = (): void => {
     if (!tracking) return;
     const wasDragging = dragging;
     reset();
 
     const sb = host.getSidebar();
-    if (!sb || !wasDragging) return;
+    if (!sb || !wasDragging) return;   // plain tap → zero state change
 
     host.suppressClicks(320);
     sb.classList.remove('dragging');
     sb.style.transition = '';
     sb.style.transform = '';
 
+    /* Calculate current position from computed transform */
     const parts = getComputedStyle(sb).transform.match(/-?\d+\.?\d*/g);
     const raw = parts && parts.length >= 6 ? parts[4] : undefined;
     const parsed = raw !== undefined ? Number.parseFloat(raw) : NaN;
     const current = Number.isFinite(parsed) ? parsed : (host.isOpen() ? 0 : -width);
     const progress = Math.max(0, Math.min(1, (current + width) / width));
 
-    /* ✅ Velocity + progress check — direction ke hisaab se open/close */
+    /* ✅ Velocity + progress → snap decision
+       · Fast right flick → open
+       · Fast left flick  → close
+       · Otherwise        → progress >= 35% decides */
     const shouldOpen =
       velocity > FLICK_VELOCITY ? true :
       velocity < -FLICK_VELOCITY ? false :
@@ -143,8 +163,8 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     if (shouldOpen) host.open(); else host.close();
   };
 
-  document.addEventListener('touchend', finish, { passive: true, signal });
-  document.addEventListener('touchcancel', finish, { passive: true, signal });
+  document.addEventListener('touchend', finish, { passive: true, capture: true, signal });
+  document.addEventListener('touchcancel', finish, { passive: true, capture: true, signal });
 
   return () => { ac.abort(); reset(); };
 }

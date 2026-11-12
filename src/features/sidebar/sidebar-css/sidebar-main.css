@@ -1,5 +1,5 @@
 /* ==========================================================================
-   sidebar-main.css — BASE + DESKTOP LAYER (UPDATED: New Chat Box)
+   sidebar-main.css — BASE + DESKTOP LAYER
    Load order: sidebar-main.css → sidebar-mobile.css
    --------------------------------------------------------------------------
    FIXED ICON RAIL (icons never move on expand/collapse)
@@ -64,7 +64,7 @@
 /* ── MIDDLE ── */
 .sb-middle{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--sb-row-gap);padding:2px var(--sb-pad) 0;overflow:hidden;position:relative;z-index:2}
 
-/* ✅ NEW CHAT BOX — input box jaisa, hover pe shadow */
+/* ✅ NEW CHAT BOX — hover shadow + active press on BOX, not button */
 .new-chat-box{
   position:relative;
   width:100%;
@@ -76,13 +76,19 @@
   box-sizing:border-box;
   transition:border-color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),
              background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),
-             box-shadow .18s ease;
+             box-shadow .18s ease,
+             transform .1s ease;
 }
-/* ✅ HOVER: shadow box pe aata hai, button ke andar nahi */
+/* ✅ HOVER: shadow box pe */
 .new-chat-box:hover{
   background:var(--sidebar-hover,rgba(255,255,255,.04));
   border-color:var(--sidebar-border,rgba(255,255,255,.12));
   box-shadow:0 2px 8px rgba(0,0,0,.15),0 1px 3px rgba(0,0,0,.1);
+}
+/* ✅ ACTIVE/PRESS: box chhota hota hai — icon/text stable rehte hain */
+.new-chat-box:active{
+  transform:scale(.97);
+  box-shadow:0 1px 4px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
 }
 .sidebar:not(.expanded) .new-chat-box{
   padding:2px;
@@ -99,15 +105,15 @@
 .sb-btn-text{font-size:var(--sb-text);font-weight:500;letter-spacing:.005em;line-height:1;white-space:nowrap;overflow:hidden;color:var(--sidebar-text,#fafafa);opacity:0;margin-left:36px;max-width:0;transform:translateX(-8px);transition:opacity .18s ease,max-width .32s cubic-bezier(.16,1,.3,1),transform .26s cubic-bezier(.16,1,.3,1),color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .sidebar.expanded .sb-btn-text{opacity:1;max-width:180px;transform:translateX(0);transition:opacity .26s ease .07s,max-width .36s cubic-bezier(.16,1,.3,1),transform .3s cubic-bezier(.16,1,.3,1) .04s,color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 
-/* ✅ NEW CHAT BUTTON — box ke andar, NO inner hover effect */
+/* ✅ NEW CHAT BUTTON — box ke andar, NO own transform/hover */
 .sb-action-btn.new-chat-btn{
   border-radius:7px;
   margin:0;
 }
 .sb-action-btn.new-chat-btn::before{display:none!important}
-/* ✅ REMOVED: inner hover background — box handles the effect */
 .sb-action-btn.new-chat-btn:hover{background:transparent!important}
-.sb-action-btn.new-chat-btn:active{transform:scale(.96);transition:transform .08s ease}
+/* ✅ FIXED: button pe koi active transform nahi — box handle karta hai */
+.sb-action-btn.new-chat-btn:active{transform:none!important}
 
 .sb-action-btn.model-hub-btn{background:transparent;border:none;box-shadow:none}
 .sb-action-btn.model-hub-btn:hover{background:var(--sidebar-hover,rgba(255,255,255,.06))}

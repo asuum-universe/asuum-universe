@@ -8,6 +8,7 @@
  *   DESKTOP → persistent panel. Outside clicks never collapse it.
  *   MOBILE  → drawer. Outside tap / scrim / Escape closes it.
  *             Chat click → auto-close (like new chat button).
+ *             Swipe gestures → open from left half, close from anywhere.
  *
  * Re-init safe: every listener is bound to an AbortController that is
  * aborted before a new init, so HMR never duplicates handlers.
@@ -95,6 +96,8 @@ function ensureScrim(): HTMLElement {
   el.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!isMobile()) return;
+    /* ✅ Swipe ke baad click event double-close na kare */
+    if (Date.now() < suppressUntil) return;
     closeSidebar();
   });
   document.body.appendChild(el);
@@ -165,7 +168,6 @@ export function initializeSidebarUI(): void {
   const sb = document.getElementById('sidebar');
   if (!sb) return;
 
-  /* Abort a previous run — guarantees no duplicate listeners on HMR/re-init */
   controller?.abort();
   destroyGestures?.();
   controller = new AbortController();
@@ -267,7 +269,6 @@ export function initializeSidebarUI(): void {
     if (isMobile() && isOpen()) closeSidebar();
   }, { signal });
 
-  /* Scroll capture on the stable wrapper — survives list re-renders */
   document.querySelector('.sidebar-content')?.addEventListener('scroll', scheduleReposition, { capture: true, passive: true, signal });
 
   window.addEventListener('resize', () => {
@@ -529,7 +530,7 @@ function wireListEvents(): void {
       closeMenu();
       setActiveWorkspaceFilter(null);
       loadSession(id);
-      /* ✅ MOBILE: Chat click karne pe automatically sidebar close (jaise new chat button) */
+      /* ✅ MOBILE: Chat click → auto-close sidebar */
       if (isMobile()) closeSidebar();
     });
 
