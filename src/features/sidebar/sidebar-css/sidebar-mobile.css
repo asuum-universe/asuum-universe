@@ -48,6 +48,22 @@
   /* ── NEW CHAT / MODEL HUB · slim rows, minimal gap ── */
   .sb-middle{padding:1px 9px 0!important;gap:1px!important}
   .sidebar .sidebar-content{opacity:1!important;pointer-events:auto!important;transition:none!important}
+
+  /* ✅ NEW CHAT BOX — mobile pe bhi input box jaisa */
+  .new-chat-box{
+    padding:3px!important;
+    margin:0 0 3px 0!important;
+    border-radius:9px!important;
+  }
+  /* ✅ Mobile hover: box pe shadow, button pe nahi */
+  .new-chat-box:hover{
+    background:var(--sidebar-hover,rgba(255,255,255,.04))!important;
+    border-color:var(--sidebar-border,rgba(255,255,255,.12))!important;
+    box-shadow:0 2px 8px rgba(0,0,0,.15),0 1px 3px rgba(0,0,0,.1)!important;
+  }
+  /* ✅ Button ka hover transparent — box handle karta hai */
+  .sb-action-btn.new-chat-btn:hover{background:transparent!important}
+
   .sb-action-btn{height:34px!important;min-height:34px!important;border-radius:8px!important}
   .sb-action-btn svg{width:17px!important;height:17px!important;left:8px!important}
   .sb-btn-text{opacity:1!important;max-width:190px!important;transform:translateX(0)!important;margin-left:33px!important;font-size:.85rem!important}
@@ -121,4 +137,10 @@
   .sidebar-mobile-overlay{left:264px}
   .sb-btn-text{max-width:168px!important}
   .sb-profile-info{max-width:122px!important}
+
+  /* ✅ NEW CHAT BOX — 380px pe aur compact */
+  .new-chat-box{
+    padding:2px!important;
+    border-radius:8px!important;
+  }
 }
