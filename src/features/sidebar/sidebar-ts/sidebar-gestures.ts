@@ -9,7 +9,7 @@
  *
  * SNAP LOGIC:
  *   · Opening: drag past 35% OR fast right flick → snap open
- *   · Closing: drag past 20% OR fast left flick  → snap closed  ← EASIER
+ *   · Closing: drag past 20% OR fast left flick  → snap closed
  *
  * Capture-phase listeners → immune to stopPropagation guards.
  */
@@ -28,9 +28,9 @@ export interface SidebarGestureHost {
 
 const DRAG_START_PX = 10;
 const VERTICAL_CANCEL_PX = 14;
-const OPEN_RATIO = 0.35;     // open karne ke liye 35% drag chahiye
-const CLOSE_RATIO = 0.80;    // ✅ close karne ke liye sirf 20% drag kaafi (progress < 0.80)
-const FLICK_VELOCITY = 0.45; // px/ms — fast flick = instant snap
+const OPEN_RATIO = 0.35;
+const CLOSE_RATIO = 0.80;
+const FLICK_VELOCITY = 0.45;
 
 const SKIP_SELECTOR =
   '.chat-input,.input-container,.message-bubble,' +
@@ -75,10 +75,10 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     const open = host.isOpen();
 
     if (!open) {
-      /* ✅ CLOSED: swipe right from LEFT HALF of screen to open */
+      /* CLOSED: swipe right from LEFT HALF of screen to open */
       if (pt.x > window.innerWidth * 0.5) return;
     }
-    /* ✅ OPEN: swipe left from ANYWHERE to close — no restriction */
+    /* OPEN: swipe left from ANYWHERE to close — no restriction */
 
     tracking = true;
     dragging = false;
@@ -101,11 +101,8 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     const dy = Math.abs(pt.y - startY);
 
     if (!dragging) {
-      /* Cancel if vertical scroll detected */
       if (dy > VERTICAL_CANCEL_PX && dy > Math.abs(dx)) { reset(); return; }
-      /* Wait for minimum horizontal movement before committing */
       if (Math.abs(dx) < DRAG_START_PX) return;
-      /* Cancel if more vertical than horizontal */
       if (Math.abs(dx) <= dy) { reset(); return; }
 
       dragging = true;
@@ -120,7 +117,6 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
       }
     }
 
-    /* Velocity tracking for flick detection */
     const now = performance.now();
     if (now > lastT) velocity = (pt.x - lastX) / (now - lastT);
     lastX = pt.x;
@@ -138,14 +134,13 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     reset();
 
     const sb = host.getSidebar();
-    if (!sb || !wasDragging) return;   // plain tap → zero state change
+    if (!sb || !wasDragging) return;
 
     host.suppressClicks(320);
     sb.classList.remove('dragging');
     sb.style.transition = '';
     sb.style.transform = '';
 
-    /* Calculate current position from computed transform */
     const parts = getComputedStyle(sb).transform.match(/-?\d+\.?\d*/g);
     const raw = parts && parts.length >= 6 ? parts[4] : undefined;
     const parsed = raw !== undefined ? Number.parseFloat(raw) : NaN;
@@ -153,11 +148,9 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     const progress = Math.max(0, Math.min(1, (current + width) / width));
 
     /* ✅ SMART SNAP: direction-based ratio
-       · Started OPEN  → closing gesture → use CLOSE_RATIO (0.80)
-         progress < 0.80 means user dragged at least 20% closed → snap closed
-       · Started CLOSED → opening gesture → use OPEN_RATIO (0.35)
-         progress >= 0.35 means user dragged at least 35% open → snap open
-       · Fast flick overrides ratio in both directions */
+       · Started OPEN  → closing → CLOSE_RATIO (0.80) → sirf 20% drag = close
+       · Started CLOSED → opening → OPEN_RATIO (0.35) → 35% drag = open
+       · Fast flick overrides ratio */
     const startedOpen = base === 0;
     const ratio = startedOpen ? CLOSE_RATIO : OPEN_RATIO;
 

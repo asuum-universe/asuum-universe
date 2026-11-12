@@ -34,7 +34,8 @@
     will-change:transform;touch-action:pan-y;
     padding-top:env(safe-area-inset-top);
   }
-  .sidebar.expanded{width:276px!important;transform:translateX(0)!important}
+  /* ✅ FIXED: transform se !important HATAYA — ab JS inline transform kaam karega */
+  .sidebar.expanded{width:276px!important;transform:translateX(0)}
   .sidebar.dragging{transition:none!important}
   .sidebar.hub-fullscreen{transform:translateX(0)!important;width:100%!important}
 
@@ -55,13 +56,11 @@
     margin:0 0 3px 0!important;
     border-radius:9px!important;
   }
-  /* ✅ Mobile hover: box pe shadow, button pe nahi */
   .new-chat-box:hover{
     background:var(--sidebar-hover,rgba(255,255,255,.04))!important;
     border-color:var(--sidebar-border,rgba(255,255,255,.12))!important;
     box-shadow:0 2px 8px rgba(0,0,0,.15),0 1px 3px rgba(0,0,0,.1)!important;
   }
-  /* ✅ Button ka hover transparent — box handle karta hai */
   .sb-action-btn.new-chat-btn:hover{background:transparent!important}
 
   .sb-action-btn{height:34px!important;min-height:34px!important;border-radius:8px!important}
@@ -133,12 +132,12 @@
 
 @media(max-width:380px){
   .sidebar{--sb-wide:264px;width:264px!important;transform:translateX(-264px)}
-  .sidebar.expanded{width:264px!important}
+  /* ✅ FIXED: yahan bhi !important hataya */
+  .sidebar.expanded{width:264px!important;transform:translateX(0)}
   .sidebar-mobile-overlay{left:264px}
   .sb-btn-text{max-width:168px!important}
   .sb-profile-info{max-width:122px!important}
 
-  /* ✅ NEW CHAT BOX — 380px pe aur compact */
   .new-chat-box{
     padding:2px!important;
     border-radius:8px!important;
