@@ -1,5 +1,5 @@
 /**
- * sidebar-gestures.ts — MOBILE-ONLY TOUCH GESTURES (PRO EDITION)
+ * sidebar-gestures.ts — MOBILE-ONLY TOUCH GESTURES (PRO EDITION v2)
  * Owns nothing but touch listeners. No DOM rendering, no state, no menus.
  * Fully destroyable → safe on HMR, resize, and re-init.
  *
@@ -7,12 +7,11 @@
  *   CLOSED → swipe RIGHT from LEFT HALF of screen → OPEN (finger tracking)
  *   OPEN   → swipe LEFT from ANYWHERE           → CLOSE (finger tracking)
  *
- * FEATURES:
- *   · Real-time finger tracking (sidebar follows finger exactly)
- *   · Velocity-based flick detection (fast swipe = instant snap)
- *   · Progress-based snap (release past 35% = complete the action)
- *   · Capture-phase listeners (immune to stopPropagation guards)
- *   · Vertical scroll cancellation (won't hijack scrolling)
+ * SNAP LOGIC:
+ *   · Opening: drag past 35% OR fast right flick → snap open
+ *   · Closing: drag past 20% OR fast left flick  → snap closed  ← EASIER
+ *
+ * Capture-phase listeners → immune to stopPropagation guards.
  */
 export interface SidebarGestureHost {
   isMobile(): boolean;
@@ -29,8 +28,10 @@ export interface SidebarGestureHost {
 
 const DRAG_START_PX = 10;
 const VERTICAL_CANCEL_PX = 14;
-const OPEN_RATIO = 0.35;
-const FLICK_VELOCITY = 0.45;
+const OPEN_RATIO = 0.35;     // open karne ke liye 35% drag chahiye
+const CLOSE_RATIO = 0.80;    // ✅ close karne ke liye sirf 20% drag kaafi (progress < 0.80)
+const FLICK_VELOCITY = 0.45; // px/ms — fast flick = instant snap
+
 const SKIP_SELECTOR =
   '.chat-input,.input-container,.message-bubble,' +
   '.chat-scrollbar,.chat-scrollbar-hover-zone,.timeline-system,' +
@@ -151,14 +152,19 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     const current = Number.isFinite(parsed) ? parsed : (host.isOpen() ? 0 : -width);
     const progress = Math.max(0, Math.min(1, (current + width) / width));
 
-    /* ✅ Velocity + progress → snap decision
-       · Fast right flick → open
-       · Fast left flick  → close
-       · Otherwise        → progress >= 35% decides */
+    /* ✅ SMART SNAP: direction-based ratio
+       · Started OPEN  → closing gesture → use CLOSE_RATIO (0.80)
+         progress < 0.80 means user dragged at least 20% closed → snap closed
+       · Started CLOSED → opening gesture → use OPEN_RATIO (0.35)
+         progress >= 0.35 means user dragged at least 35% open → snap open
+       · Fast flick overrides ratio in both directions */
+    const startedOpen = base === 0;
+    const ratio = startedOpen ? CLOSE_RATIO : OPEN_RATIO;
+
     const shouldOpen =
       velocity > FLICK_VELOCITY ? true :
       velocity < -FLICK_VELOCITY ? false :
-      progress >= OPEN_RATIO;
+      progress >= ratio;
 
     if (shouldOpen) host.open(); else host.close();
   };
