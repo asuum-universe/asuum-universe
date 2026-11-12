@@ -1,4 +1,4 @@
-/** input-ui.ts — SMOOTH NO-FLICKER TREE SELECTOR */
+/** input-ui.ts — SMOOTH NO-FLICKER TREE SELECTOR + MOBILE KEYBOARD INTEGRATION */
 import { eventBus } from '../../../event-bus';
 import { getAllSavedProviders } from '../../../core/crypto';
 import { fetchModelsForProvider } from '../../../core/ai-router';
@@ -27,13 +27,14 @@ export function getSelectedProvider(): string { return selectedProviderId; }
 export function getSelectedModel(): string { return selectedModelId; }
 
 export function initializeInputUI(): void {
-  console.log('⌨️ Input UI (Smooth No-Flicker Selector)');
+  console.log('⌨️ Input UI (Smooth No-Flicker Selector + Mobile Keyboard Integration)');
 
   const inputField = document.querySelector('.chat-input') as HTMLTextAreaElement | null;
   const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement | null;
   const plusBtn = document.querySelector('.plus-btn') as HTMLElement | null;
   const inputContainer = document.querySelector('.input-container') as HTMLElement | null;
   const actionsBar = document.querySelector('.input-actions') as HTMLElement | null;
+  const mainPanel = document.getElementById('mainPanel');
 
   if (!inputField || !inputContainer || !actionsBar) return;
 
@@ -107,10 +108,8 @@ export function initializeInputUI(): void {
         '<span class="tree-label">' + pid.charAt(0).toUpperCase() + pid.slice(1) + '</span>';
       provRow.onclick = (e) => {
         e.stopPropagation();
-        // ✅ Instant toggle — no async, no flicker
         if (expandedProviders.has(pid)) expandedProviders.delete(pid);
         else expandedProviders.add(pid);
-        // Rebuild content without closing dropdown
         requestAnimationFrame(async () => {
           const newFrag = await buildDropdownContent();
           dropdown.innerHTML = '';
@@ -120,23 +119,19 @@ export function initializeInputUI(): void {
       frag.appendChild(provRow);
 
       if (isExpanded) {
-        // Use cached models if available
         let models = cachedModelsMap[pid];
         if (!models) {
-          // Show loading placeholder while fetching
           const loading = document.createElement('div');
           loading.className = 'tree-loading';
           loading.dataset.provider = pid;
           loading.textContent = 'Loading models...';
           frag.appendChild(loading);
 
-          // Fetch in background and update when ready
           if (!isFetching) {
             isFetching = true;
             fetchModelsForProvider(pid).then((fetched) => {
               cachedModelsMap[pid] = fetched;
               isFetching = false;
-              // Only update if still expanded and dropdown open
               if (expandedProviders.has(pid) && dropdownOpen) {
                 requestAnimationFrame(async () => {
                   const newFrag = await buildDropdownContent();
@@ -147,7 +142,6 @@ export function initializeInputUI(): void {
             });
           }
         } else {
-          // Auto Model
           const isAutoModActive = selectedProviderId === pid && selectedModelId === 'auto';
           const autoModRow = document.createElement('button');
           autoModRow.className = 'tree-item tree-model' + (isAutoModActive ? ' active' : '');
@@ -175,10 +169,8 @@ export function initializeInputUI(): void {
     return frag;
   }
 
-  // ✅ Single atomic swap — no intermediate empty state
   async function refreshDropdown(): Promise<void> {
     const frag = await buildDropdownContent();
-    // One-frame atomic replacement
     dropdown.innerHTML = '';
     dropdown.appendChild(frag);
   }
@@ -194,11 +186,9 @@ export function initializeInputUI(): void {
     console.log('🔄 Selected:', provId, '/', modId);
   }
 
-  // ✅ Open: show dropdown FIRST, then populate content
   async function openDropdown(): Promise<void> {
     dropdownOpen = true;
     selectorWrap.classList.add('open');
-    // Set position before showing
     if (isWelcomeMode()) {
       dropdown.classList.add('pos-below');
       dropdown.classList.remove('pos-above');
@@ -206,7 +196,6 @@ export function initializeInputUI(): void {
       dropdown.classList.add('pos-above');
       dropdown.classList.remove('pos-below');
     }
-    // Populate content after dropdown is visible
     await refreshDropdown();
   }
 
@@ -237,14 +226,12 @@ export function initializeInputUI(): void {
   selectorWrap.appendChild(dropdown);
   actionsBar.insertBefore(selectorWrap, actionsBar.firstChild);
 
-  // Close button
   const closeBtn = document.createElement('button');
   closeBtn.className = 'input-close-btn';
   closeBtn.title = 'Minimize input';
   closeBtn.innerHTML = ICON_MINIMIZE;
   inputContainer.appendChild(closeBtn);
 
-  // Fixed reveal
   const fixedReveal = document.createElement('div');
   fixedReveal.className = 'input-fixed-reveal';
   fixedReveal.style.display = 'none';
@@ -328,4 +315,51 @@ export function initializeInputUI(): void {
   if (sendBtn) { sendBtn.addEventListener('click', sendMessage); sendBtn.disabled = true; }
   if (plusBtn) { plusBtn.addEventListener('click', () => { console.log('➕ Plus clicked'); }); }
   autoResize();
+
+  /* ─────────────────────────────────────────────────────────────────────
+     ✅ MOBILE KEYBOARD INTEGRATION
+     · visualViewport API detects keyboard open/close
+     · Adds .keyboard-open class to mainPanel
+     · Smoothly scrolls to bottom when keyboard appears
+     · Creates seamless "keyboard-attached" feel
+     ───────────────────────────────────────────────────────────────────── */
+  const isMobileDevice = window.innerWidth <= 768;
+  if (isMobileDevice && 'visualViewport' in window && mainPanel) {
+    let lastViewportHeight = window.visualViewport!.height;
+
+    const onViewportResize = (): void => {
+      const currentHeight = window.visualViewport!.height;
+      const keyboardJustOpened = currentHeight < lastViewportHeight - 100;
+      const keyboardJustClosed = currentHeight > lastViewportHeight + 100;
+
+      if (keyboardJustOpened) {
+        mainPanel.classList.add('keyboard-open');
+        // Smooth scroll to bottom so last message is visible
+        const chatMessages = document.querySelector('.chat-messages');
+        if (chatMessages) {
+          setTimeout(() => {
+            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+          }, 150);
+        }
+      } else if (keyboardJustClosed) {
+        mainPanel.classList.remove('keyboard-open');
+      }
+
+      lastViewportHeight = currentHeight;
+    };
+
+    window.visualViewport!.addEventListener('resize', onViewportResize);
+
+    inputField.addEventListener('focus', () => {
+      setTimeout(() => {
+        if (mainPanel) mainPanel.classList.add('keyboard-open');
+      }, 300);
+    });
+
+    inputField.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (mainPanel) mainPanel.classList.remove('keyboard-open');
+      }, 150);
+    });
+  }
 }
