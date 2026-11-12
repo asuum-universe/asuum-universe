@@ -2,6 +2,12 @@
  * sidebar-gestures.ts — MOBILE-ONLY CONCERN
  * Owns nothing but touch listeners. No DOM rendering, no state, no menus.
  * Fully destroyable → safe on HMR, resize, and re-init.
+ * 
+ * FEATURES:
+ *   · Swipe RIGHT from left edge → OPEN sidebar (existing)
+ *   · Swipe LEFT while open → CLOSE sidebar (NEW)
+ *   · Smooth real-time transform tracking
+ *   · Velocity-based flick detection
  */
 export interface SidebarGestureHost {
   isMobile(): boolean;
@@ -53,7 +59,15 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     if (!target || target.closest(SKIP_SELECTOR)) return;
 
     const open = host.isOpen();
-    if (open && !sb.contains(target)) return;
+    
+    /* ✅ CLOSED state: sirf left edge se right swipe track karo (open karne ke liye) */
+    if (!open) {
+      if (pt.x > 40) return;  /* left 40px zone only */
+    }
+    /* ✅ OPEN state: sirf agar touch sidebar ke andar ho to track karo (close karne ke liye) */
+    else {
+      if (!sb.contains(target)) return;
+    }
 
     tracking = true;
     dragging = false;
@@ -96,6 +110,7 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     lastX = pt.x;
     lastT = now;
 
+    /* ✅ Smooth transform tracking — dono directions (open/close) */
     const translate = Math.max(-width, Math.min(0, base + dx));
     sb.style.transform = `translateX(${translate}px)`;
   }, { passive: true, signal });
@@ -106,7 +121,7 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     reset();
 
     const sb = host.getSidebar();
-    if (!sb || !wasDragging) return;   // plain tap → zero state change
+    if (!sb || !wasDragging) return;
 
     host.suppressClicks(320);
     sb.classList.remove('dragging');
@@ -119,6 +134,7 @@ export function initSidebarGestures(host: SidebarGestureHost): () => void {
     const current = Number.isFinite(parsed) ? parsed : (host.isOpen() ? 0 : -width);
     const progress = Math.max(0, Math.min(1, (current + width) / width));
 
+    /* ✅ Velocity + progress check — direction ke hisaab se open/close */
     const shouldOpen =
       velocity > FLICK_VELOCITY ? true :
       velocity < -FLICK_VELOCITY ? false :

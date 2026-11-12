@@ -1,5 +1,5 @@
 /* ==========================================================================
-   sidebar-main.css — BASE + DESKTOP LAYER
+   sidebar-main.css — BASE + DESKTOP LAYER (UPDATED: New Chat Box)
    Load order: sidebar-main.css → sidebar-mobile.css
    --------------------------------------------------------------------------
    FIXED ICON RAIL (icons never move on expand/collapse)
@@ -63,6 +63,24 @@
 
 /* ── MIDDLE ── */
 .sb-middle{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--sb-row-gap);padding:2px var(--sb-pad) 0;overflow:hidden;position:relative;z-index:2}
+
+/* ✅ NEW CHAT BOX — jaise input box hai, waise hi boundary ke andar */
+.new-chat-box{
+  position:relative;
+  width:100%;
+  padding:4px;
+  border:1px solid var(--sidebar-border,rgba(255,255,255,.08));
+  border-radius:10px;
+  background:var(--sidebar-hover,rgba(255,255,255,.02));
+  margin:0 0 4px 0;
+  box-sizing:border-box;
+  transition:border-color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1));
+}
+.sidebar:not(.expanded) .new-chat-box{
+  padding:2px;
+  border-radius:8px;
+}
+
 .sb-action-btn{display:flex;align-items:center;width:100%;height:var(--sb-row);min-height:var(--sb-row);padding:0;gap:0;border:none;border-radius:var(--sb-radius);background:transparent;color:var(--sidebar-text,#fafafa);cursor:pointer;flex-shrink:0;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;transition:background .16s cubic-bezier(.4,0,.2,1),color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .sb-action-btn svg{position:absolute;left:var(--sb-icon-left);top:50%;transform:translateY(-50%);flex-shrink:0;width:var(--sb-icon);height:var(--sb-icon);display:block;color:var(--sidebar-text,#fafafa);filter:var(--sidebar-icon-filter,none);transition:color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .sb-action-btn::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:54%;background:var(--sidebar-text,#fafafa);border-radius:0 2px 2px 0;transition:width .18s cubic-bezier(.4,0,.2,1)}
@@ -72,8 +90,18 @@
 .sb-action-btn:focus-visible{outline:2px solid var(--sidebar-text,#fafafa);outline-offset:-2px}
 .sb-btn-text{font-size:var(--sb-text);font-weight:500;letter-spacing:.005em;line-height:1;white-space:nowrap;overflow:hidden;color:var(--sidebar-text,#fafafa);opacity:0;margin-left:36px;max-width:0;transform:translateX(-8px);transition:opacity .18s ease,max-width .32s cubic-bezier(.16,1,.3,1),transform .26s cubic-bezier(.16,1,.3,1),color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .sidebar.expanded .sb-btn-text{opacity:1;max-width:180px;transform:translateX(0);transition:opacity .26s ease .07s,max-width .36s cubic-bezier(.16,1,.3,1),transform .3s cubic-bezier(.16,1,.3,1) .04s,color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
-.sb-action-btn.new-chat-btn,.sb-action-btn.model-hub-btn{background:transparent;border:none;box-shadow:none}
-.sb-action-btn.new-chat-btn:hover,.sb-action-btn.model-hub-btn:hover{background:var(--sidebar-hover,rgba(255,255,255,.06))}
+
+/* ✅ NEW CHAT BUTTON — box ke andar, no hover line, pressed feel */
+.sb-action-btn.new-chat-btn{
+  border-radius:7px;
+  margin:0;
+}
+.sb-action-btn.new-chat-btn::before{display:none!important}  /* ✅ hover line hatai */
+.sb-action-btn.new-chat-btn:hover{background:var(--sidebar-hover,rgba(255,255,255,.08))}
+.sb-action-btn.new-chat-btn:active{transform:scale(.96);transition:transform .08s ease}  /* ✅ pressed feel */
+
+.sb-action-btn.model-hub-btn{background:transparent;border:none;box-shadow:none}
+.sb-action-btn.model-hub-btn:hover{background:var(--sidebar-hover,rgba(255,255,255,.06))}
 
 .sb-divider{width:16px;height:1px;background:linear-gradient(90deg,transparent,var(--sidebar-border,#27272a),transparent);margin:2px auto;flex-shrink:0;transition:width .28s cubic-bezier(.16,1,.3,1),background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .sidebar.expanded .sb-divider{width:100%;margin:2px 0}

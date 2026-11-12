@@ -12,9 +12,14 @@
 // ===== CSS IMPORTS (order = cascade priority) =====
 import './app.css';
 import './features/welcome-screen/welcome-css/welcome-main.css';
+
+/* Input box — base/desktop, then mobile overrides */
 import './features/input-box/input-box-css/input-main.css';
+import './features/input-box/input-box-css/input-mobile.css';
+
+/* Chat screen — base/desktop, then mobile overrides */
 import './features/chat-screen/chat-screen-css/chat-main.css';
-import './features/chat-screen/chat-screen-css/chat-mobile.css';    /* ✅ NEW — mobile chat + menu overrides */
+import './features/chat-screen/chat-screen-css/chat-mobile.css';
 
 /* Sidebar — base/desktop, then mobile overrides */
 import './features/sidebar/sidebar-css/sidebar-main.css';

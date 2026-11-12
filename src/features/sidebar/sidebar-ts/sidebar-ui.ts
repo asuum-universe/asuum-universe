@@ -7,6 +7,7 @@
  * POLICY
  *   DESKTOP → persistent panel. Outside clicks never collapse it.
  *   MOBILE  → drawer. Outside tap / scrim / Escape closes it.
+ *             Chat click → auto-close (like new chat button).
  *
  * Re-init safe: every listener is bound to an AbortController that is
  * aborted before a new init, so HMR never duplicates handlers.
@@ -528,6 +529,8 @@ function wireListEvents(): void {
       closeMenu();
       setActiveWorkspaceFilter(null);
       loadSession(id);
+      /* ✅ MOBILE: Chat click karne pe automatically sidebar close (jaise new chat button) */
+      if (isMobile()) closeSidebar();
     });
 
     el.addEventListener('dblclick', (e) => {

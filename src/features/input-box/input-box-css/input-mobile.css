@@ -1,0 +1,77 @@
+/* ==========================================================================
+   input-mobile.css — MOBILE OVERRIDE LAYER ONLY
+   Must load AFTER input-main.css.
+   --------------------------------------------------------------------------
+   · Input box responsive adjustments for mobile
+   · Slightly tighter padding, smaller fonts, smaller buttons
+   ========================================================================== */
+
+@media(max-width:768px){
+  .input-container{width:95%;max-width:95%;border-radius:12px;padding-bottom:5px}
+  html body .input-container.input-closed,
+  .main-panel .input-container.input-closed,
+  .main-panel.chat-active .input-container.input-closed,
+  .main-panel:not(.chat-active) .input-container.input-closed{min-height:42px!important;height:42px!important;padding:0 0 5px 0!important}
+  
+  .chat-input{font-size:.9rem;min-height:42px;padding:10px 16px 4px 16px}
+  .input-actions{padding:0 10px;min-height:42px}
+  
+  .action-btn,.send-btn{width:32px;height:32px;min-width:32px}
+  .send-btn svg{width:14px!important;height:14px!important}
+  .action-btn svg{width:16px!important;height:16px!important}
+  
+  .provider-trigger{font-size:.7rem;padding:4px 10px}
+  .provider-trigger .provider-label{max-width:140px}
+  .provider-dropdown{width:200px;max-height:180px}
+  
+  .input-close-btn{width:34px;height:18px}
+  .input-close-btn svg{width:11px;height:11px}
+  .input-close-btn:hover{height:20px}
+  
+  .input-fixed-reveal{height:28px}
+  .input-reveal-line{width:64px;height:4px}
+  .input-reveal-line:hover{width:82px}
+  .input-reveal-box{width:28px;height:18px}
+  .input-reveal-box svg{width:12px;height:12px}
+  .input-reveal-box:hover{height:20px}
+}
+
+@media(max-width:480px){
+  .input-container{width:95%;max-width:95%;border-radius:10px;padding-bottom:4px}
+  html body .input-container.input-closed,
+  .main-panel .input-container.input-closed,
+  .main-panel.chat-active .input-container.input-closed,
+  .main-panel:not(.chat-active) .input-container.input-closed{min-height:40px!important;height:40px!important;padding:0 0 4px 0!important}
+  
+  .chat-input{font-size:.88rem;min-height:40px;padding:10px 14px 3px 14px}
+  .input-actions{padding:0 8px;min-height:40px}
+  
+  .action-btn,.send-btn{width:30px;height:30px;min-width:30px}
+  .send-btn svg{width:13px!important;height:13px!important}
+  .action-btn svg{width:15px!important;height:15px!important}
+  
+  .provider-trigger{font-size:.65rem;padding:3px 8px}
+  .provider-trigger .provider-label{max-width:110px}
+  .provider-dropdown{width:180px;max-height:160px}
+  
+  .tree-item{font-size:.7rem;padding:5px 6px}
+  .tree-model{padding-left:22px;font-size:.66rem}
+  .tree-sep-model{margin-left:22px}
+  
+  .input-close-btn{width:30px;height:16px}
+  .input-close-btn svg{width:10px;height:10px}
+  .input-close-btn:hover{height:18px}
+  
+  .input-fixed-reveal{height:26px}
+  .input-reveal-line{width:64px;height:4px}
+  .input-reveal-line:hover{width:82px}
+  .input-reveal-box{width:28px;height:18px}
+  .input-reveal-box svg{width:10px;height:10px}
+  .input-reveal-box:hover{height:18px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .input-container,.action-btn,.send-btn,.input-close-btn,.input-reveal-box,
+  .input-reveal-line,.chat-input,.input-actions,.provider-dropdown,
+  .provider-trigger,.tree-arrow-wrap,.tree-loading{animation:none!important;transition:none!important}
+}
