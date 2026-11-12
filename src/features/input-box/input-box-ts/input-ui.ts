@@ -71,11 +71,9 @@ export function initializeInputUI(): void {
     return !!panel && !panel.classList.contains('chat-active');
   }
 
-  // ✅ Build dropdown content into a FRAGMENT first, then swap in one frame
   async function buildDropdownContent(): Promise<DocumentFragment> {
     const frag = document.createDocumentFragment();
 
-    // Auto option
     const isAutoActive = selectedProviderId === 'auto' && selectedModelId === 'auto';
     const autoRow = document.createElement('button');
     autoRow.className = 'tree-item tree-auto' + (isAutoActive ? ' active' : '');
@@ -318,10 +316,9 @@ export function initializeInputUI(): void {
 
   /* ─────────────────────────────────────────────────────────────────────
      ✅ MOBILE KEYBOARD INTEGRATION
-     · visualViewport API detects keyboard open/close
-     · Adds .keyboard-open class to mainPanel
-     · Smoothly scrolls to bottom when keyboard appears
-     · Creates seamless "keyboard-attached" feel
+     · Detects keyboard open/close via visualViewport
+     · Adds .keyboard-open class for CSS styling
+     · Smooth scroll to bottom when keyboard appears
      ───────────────────────────────────────────────────────────────────── */
   const isMobileDevice = window.innerWidth <= 768;
   if (isMobileDevice && 'visualViewport' in window && mainPanel) {
@@ -334,7 +331,6 @@ export function initializeInputUI(): void {
 
       if (keyboardJustOpened) {
         mainPanel.classList.add('keyboard-open');
-        // Smooth scroll to bottom so last message is visible
         const chatMessages = document.querySelector('.chat-messages');
         if (chatMessages) {
           setTimeout(() => {
