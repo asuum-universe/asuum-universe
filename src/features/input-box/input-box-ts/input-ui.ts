@@ -29,7 +29,8 @@ export function getSelectedModel(): string { return selectedModelId; }
 /* ─────────────────────────────────────────────────────────────────────
    ✅ AUTO RESPONSIVE INPUT POSITIONING
    · matchMedia se device detect karta hai
-   · Mobile pe input ko bottom pe FIX karta hai (inline !important styles)
+   · Mobile pe input ko PERFECTLY CENTERED floating card banata hai
+   · left:50% + translateX(-50%) + fixed width = bulletproof centering
    · Resize / orientation change pe auto adjust
    · Keyboard (visualViewport) handle karta hai
    ───────────────────────────────────────────────────────────────────── */
@@ -40,17 +41,28 @@ function setupResponsiveInput(
 ): void {
   const mobileQuery = window.matchMedia('(max-width: 768px)');
 
+  /* ✅ GAP SETTINGS — yahan se adjust karo
+     SIDE_GAP_PX : left/right dono taraf ka gap (screen boundary se)
+     BOTTOM_GAP  : screen ke bottom se gap
+     KEYBOARD_GAP: keyboard khulne par bottom gap */
+  const SIDE_GAP_PX = 16;
+  const WIDTH_CALC = `calc(100% - ${SIDE_GAP_PX * 2}px)`;
+  const BOTTOM_GAP = 'calc(12px + env(safe-area-inset-bottom, 0px))';
+  const KEYBOARD_GAP = '8px';
+
   const MOBILE_PROPS: Array<[string, string]> = [
     ['position', 'fixed'],
-    ['bottom', '0'],
-    ['left', '0'],
-    ['right', '0'],
+    ['bottom', BOTTOM_GAP],
+    ['left', '50%'],
+    ['right', 'auto'],
     ['top', 'auto'],
-    ['width', '100%'],
-    ['max-width', '100%'],
+    ['transform', 'translateX(-50%)'],
+    ['width', WIDTH_CALC],
+    ['max-width', WIDTH_CALC],
+    ['box-sizing', 'border-box'],
     ['margin', '0'],
     ['z-index', '100'],
-    ['border-radius', '16px 16px 0 0'],
+    ['border-radius', '16px'],
     ['opacity', '1'],
     ['visibility', 'visible'],
     ['display', 'flex'],
@@ -59,19 +71,15 @@ function setupResponsiveInput(
 
   const applyLayout = (): void => {
     if (mobileQuery.matches) {
-      // ✅ MOBILE: bottom pe pin karo, visible rakho
+      // ✅ MOBILE: perfectly centered floating card
       MOBILE_PROPS.forEach(([prop, val]) => {
         inputContainer.style.setProperty(prop, val, 'important');
       });
-      // Safe area for iOS notch
-      const safeBottom = 'env(safe-area-inset-bottom, 0px)';
-      inputContainer.style.setProperty('padding-bottom', `calc(6px + ${safeBottom})`, 'important');
     } else {
       // 💻 DESKTOP: inline styles hatao, CSS rules apply honge
       MOBILE_PROPS.forEach(([prop]) => {
         inputContainer.style.removeProperty(prop);
       });
-      inputContainer.style.removeProperty('padding-bottom');
     }
   };
 
@@ -80,7 +88,6 @@ function setupResponsiveInput(
   if (typeof mobileQuery.addEventListener === 'function') {
     mobileQuery.addEventListener('change', onQueryChange);
   } else {
-    // Older browsers fallback
     (mobileQuery as unknown as { addListener: (fn: () => void) => void }).addListener(onQueryChange);
   }
 
@@ -98,11 +105,18 @@ function setupResponsiveInput(
       const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
       if (keyboardHeight > 100) {
         mainPanel?.classList.add('keyboard-open');
-        // Input ko keyboard ke upar rakho
-        inputContainer.style.setProperty('bottom', '0', 'important');
+        inputContainer.style.setProperty('bottom', KEYBOARD_GAP, 'important');
       } else {
         mainPanel?.classList.remove('keyboard-open');
+        inputContainer.style.setProperty('bottom', BOTTOM_GAP, 'important');
       }
+      // ✅ Centering hamesha maintain rahe (keyboard ke dauran bhi)
+      inputContainer.style.setProperty('left', '50%', 'important');
+      inputContainer.style.setProperty('right', 'auto', 'important');
+      inputContainer.style.setProperty('transform', 'translateX(-50%)', 'important');
+      inputContainer.style.setProperty('width', WIDTH_CALC, 'important');
+      inputContainer.style.setProperty('max-width', WIDTH_CALC, 'important');
+
       // Chat ko bottom pe scroll karo jab keyboard khule
       const chatMessages = document.querySelector('.chat-messages');
       if (chatMessages && keyboardHeight > 100) {
@@ -115,7 +129,6 @@ function setupResponsiveInput(
 
   // Initial apply
   applyLayout();
-  // DOM ready ke baad dobara apply (safety)
   setTimeout(applyLayout, 50);
   setTimeout(applyLayout, 300);
 }
@@ -329,7 +342,6 @@ export function initializeInputUI(): void {
 
   const fixedReveal = document.createElement('div');
   fixedReveal.className = 'input-fixed-reveal';
-  fixedReveal.style.display = 'none';
   const line = document.createElement('div');
   line.className = 'input-reveal-line';
   const box = document.createElement('button');
@@ -342,11 +354,41 @@ export function initializeInputUI(): void {
 
   let inputOpen = true;
 
+  /* ───────────────────────────────────────────────────────────────────
+     ✅ REVEAL LINE POSITIONING
+     Close button ke BILKUL THODA NEECHE (REVEAL_GAP px)
+     · setProperty(...,'important') → CSS ke !important ko beat karta hai
+     · max()/min() clamp → screen se bahar kabhi nahi jayega
+     ─────────────────────────────────────────────────────────────────── */
+  const REVEAL_GAP = 6;    // ← close button ke neeche ka gap (px)
+  const REVEAL_H = 34;     // reveal container ki approx height (clamp ke liye)
+
+  const positionRevealBelow = (bottomY: number, centerX: number): void => {
+    const desiredTop = bottomY + REVEAL_GAP;
+    // Clamp: upar 4px se kam nahi, neeche screen + safe-area ke andar
+    const topValue =
+      `max(4px, min(${desiredTop}px, calc(100% - ${REVEAL_H}px - env(safe-area-inset-bottom, 0px))))`;
+
+    fixedReveal.style.setProperty('position', 'fixed', 'important');
+    fixedReveal.style.setProperty('display', 'flex', 'important');
+    fixedReveal.style.setProperty('top', topValue, 'important');
+    fixedReveal.style.setProperty('bottom', 'auto', 'important');
+    fixedReveal.style.setProperty('left', `${centerX}px`, 'important');
+    fixedReveal.style.setProperty('right', 'auto', 'important');
+    fixedReveal.style.setProperty('transform', 'translateX(-50%)', 'important');
+  };
+
+  const hideReveal = (): void => {
+    fixedReveal.style.setProperty('display', 'none', 'important');
+  };
+
+  hideReveal();
+
   const forceOpenOnWelcome = (): void => {
     const panel = document.getElementById('mainPanel');
     if (panel && !panel.classList.contains('chat-active') && !inputOpen) {
       inputOpen = true;
-      fixedReveal.style.display = 'none';
+      hideReveal();
       inputContainer.classList.remove('input-closed');
       setTimeout(() => { inputField.style.height = ''; inputField.style.minHeight = ''; inputField.style.maxHeight = ''; inputField.style.overflowY = ''; }, 50);
     }
@@ -363,16 +405,14 @@ export function initializeInputUI(): void {
     inputOpen = !inputOpen;
     closeDropdown();
     if (inputOpen) {
-      fixedReveal.style.display = 'none';
+      hideReveal();
       inputContainer.classList.remove('input-closed');
       setTimeout(() => { inputField.focus(); inputField.style.height = ''; inputField.style.minHeight = ''; inputField.style.maxHeight = ''; inputField.style.overflowY = ''; }, 350);
     } else {
+      // ✅ Close button ka rect PEHLE capture karo (input-closed class se pehle,
+      //    kyunki us class se close button display:none ho jata hai)
       const r = closeBtn.getBoundingClientRect();
-      fixedReveal.style.display = 'flex';
-      fixedReveal.style.position = 'fixed';
-      fixedReveal.style.left = (r.left + r.width / 2) + 'px';
-      fixedReveal.style.top = (r.bottom - 18) + 'px';
-      fixedReveal.style.transform = 'translateX(-50%)';
+      positionRevealBelow(r.bottom, r.left + r.width / 2);
       inputContainer.classList.add('input-closed');
       inputField.blur();
     }
@@ -382,6 +422,17 @@ export function initializeInputUI(): void {
   box.addEventListener('click', toggleInput);
   line.addEventListener('click', toggleInput);
   inputContainer.addEventListener('click', (e: MouseEvent) => { if (!inputOpen && e.target !== inputField) toggleInput(); });
+
+  /* ✅ Resize / orientation pe reveal line reposition (closed state mein) */
+  const repositionRevealIfClosed = (): void => {
+    if (inputOpen) return;
+    const c = inputContainer.getBoundingClientRect();
+    positionRevealBelow(c.bottom, c.left + c.width / 2);
+  };
+  window.addEventListener('resize', repositionRevealIfClosed);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(repositionRevealIfClosed, 150);
+  });
 
   const autoResize = (): void => {
     if (!inputOpen) return;
