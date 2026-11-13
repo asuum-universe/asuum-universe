@@ -1,4 +1,34 @@
-/* chat-main.css — CHAT+INPUT SYNCED TRANSITIONS + SIDEBAR-PALETTE MENU (ZERO SHADOW) */
+/* chat-main.css — CHAT+INPUT SYNCED TRANSITIONS + TOP LAYER + SIDEBAR-PALETTE MENU */
+
+/* ==========================================================================
+   ✅ TOP LAYER — welcome + chat dono screen ke upar patli layer
+   · Colour = var(--theme-bg) → screen jaisa hi (dark/light auto sync)
+   · Height = sirf header + menu button fit hone jitni
+   · z-index 150 → chat content iske PEECHE scroll hota hai
+   · pointer-events:none → click block nahi karti
+   ========================================================================== */
+.main-panel{--top-layer-h:36px;--top-layer-hero:68px}
+.main-panel::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:var(--top-layer-h);
+  background:var(--theme-bg);
+  z-index:150;
+  pointer-events:none;
+  transition:height .35s cubic-bezier(.22,1,.36,1),background-color var(--theme-transition);
+}
+/* Welcome hero (mota header) → layer bhi moti */
+.header-area.welcome-header:not(.welcome-collapsed)~.main-panel::before{height:var(--top-layer-hero)}
+
+/* ==========================================================================
+   ✅ CONTENT PADDING — CONSTANT (header open/close se ZERO farak)
+   Dono states (open + closed) ka padding SAME → messages kabhi shift nahi honge.
+   Higher specificity + !important → app.css ke 12px override ko beat karta hai.
+   ========================================================================== */
+html .main-area .main-panel.chat-active .chat-screen,
+html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:44px!important}
+
 .chat-screen{display:none;width:100%;flex:1;min-height:0;flex-direction:column;overflow:hidden;position:relative;background:var(--theme-bg);transition:background-color var(--theme-transition)}
 .main-panel.chat-active .chat-screen{display:flex}
 .chat-messages{width:90%;max-width:760px;margin:0 auto;flex:1 1 auto;min-height:0;overflow-y:scroll;overflow-x:hidden;overscroll-behavior:contain;display:flex;flex-direction:column;gap:0;padding:4px 0 6px 0;scroll-behavior:auto;scrollbar-width:none;-ms-overflow-style:none}
@@ -106,9 +136,6 @@
 
 /* ==========================================================================
    THREE-LINE MENU (DESKTOP BASE)
-   · Window uses the SIDEBAR palette (not the chat surface palette)
-   · Dark / Light follows the MAIN screen state  →  body.main-dark
-   · Glued 2px under the button · ZERO shadow / blur / tint
    ========================================================================== */
 .mm-wrap{position:absolute;top:6px;right:14px;z-index:200;box-shadow:none!important;filter:none!important}
 .mm-btn{width:26px;height:26px;border-radius:50%;border:none;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none!important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:background .2s ease,transform .15s ease}
@@ -123,7 +150,7 @@
 .mm-wrap.open .mm-btn:hover{background:var(--theme-surface-hover)}
 .mm-wrap.open .mm-btn:hover .mm-line{background:var(--theme-text-primary)}
 
-/* ── LIGHT tokens (default · main screen light · sidebar-light palette) ── */
+/* ── LIGHT tokens ── */
 .mm-menu{
   --mm-bg:#fafafa;
   --mm-border:#e4e4e7;
@@ -149,7 +176,7 @@
   z-index:201;
 }
 
-/* ── DARK tokens (main screen dark · sidebar-dark palette) ── */
+/* ── DARK tokens ── */
 body.main-dark .mm-menu{
   --mm-bg:#0a0a0a;
   --mm-border:#27272a;
@@ -189,13 +216,12 @@ body.main-dark .mm-menu{
 .mm-divider{height:1px;background:var(--mm-divider);margin:3px 6px;box-shadow:none!important;transition:background var(--theme-transition,.5s cubic-bezier(.4,0,.2,1))}
 .mm-menu.welcome-mode .mm-item[data-action="rename"],.mm-menu.welcome-mode .mm-item[data-action="export"],.mm-menu.welcome-mode .mm-item[data-action="delete"],.mm-menu.welcome-mode .mm-divider:not(.mm-theme-divider){display:none}
 
-/* ✅ THEME TOGGLE IN THREE-LINE MENU */
 .mm-theme-divider{margin-top:2px!important}
 .mm-theme-toggle{margin-top:0!important}
 .mm-theme-toggle svg{transition:transform .3s cubic-bezier(.22,1,.36,1),color var(--theme-transition,.5s cubic-bezier(.4,0,.2,1))}
 .mm-theme-toggle:hover svg{transform:rotate(15deg) scale(1.1)}
 
-/* ✅ CHAT RULES OVERLAY — NO dark background, NO blur */
+/* ✅ CHAT RULES OVERLAY */
 .cr-overlay{position:fixed;inset:0;z-index:1000;background:transparent;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s ease}
 .cr-overlay.open,.cr-overlay.active{opacity:1;visibility:visible}
 .cr-overlay.open .cr-modal,.cr-overlay.active .cr-modal{transform:translateY(0) scale(1);opacity:1}
@@ -229,7 +255,7 @@ body.main-dark .mm-menu{
 .cr-save-btn{background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff}
 .cr-save-btn:hover{transform:translateY(-1px)}
 
-/* ✅ MODEL HUB OVERLAY — NO dark background, NO blur */
+/* ✅ MODEL HUB OVERLAY */
 .mh-overlay{position:fixed;inset:0;z-index:1000;background:transparent;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s ease}
 .mh-overlay.open,.mh-overlay.active{opacity:1;visibility:visible}
 .mh-overlay.open .mh-modal,.mh-overlay.active .mh-modal{transform:translateY(0) scale(1);opacity:1}

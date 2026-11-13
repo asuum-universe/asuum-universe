@@ -1,14 +1,20 @@
 /* ==========================================================================
    header-main.css — BASE + DESKTOP LAYER
    Load order: header-main.css → header-mobile.css
+   --------------------------------------------------------------------------
+   ✅ Patla (collapsed / chat) height: 28px — mobile jaisa
+   ✅ Arrow top:14px FIXED (28px bar ka exact center) — kabhi slide nahi
+   ✅ Avatar + arrow button: 24px (28px bar me 2px breathing room)
+   ✅ Hero height 60px, hero avatar 48px — desktop wala hi
+   ✅ Width 90%/760px, fonts .78rem — desktop wala hi
    ========================================================================== */
 
 .header-area{display:flex;justify-content:center;position:absolute;top:4px;left:50%;transform:translateX(-50%);width:90%;max-width:760px;padding:0 8px;margin:0;z-index:100}
 
-.header-container{width:100%;max-width:760px;background:#0a0a0a;border:1px solid rgba(255,255,255,.06);border-radius:14px;display:flex;flex-direction:column;padding:0 6px;margin:0 auto;position:relative;z-index:5;box-shadow:0 1px 3px rgba(0,0,0,.08);height:36px;transform-origin:top center;overflow:hidden;transition:height .45s cubic-bezier(.22,1,.36,1),padding .45s cubic-bezier(.22,1,.36,1),opacity .35s ease,border-radius .45s cubic-bezier(.22,1,.36,1),transform .45s cubic-bezier(.22,1,.36,1)}
+.header-container{width:100%;max-width:760px;background:#0a0a0a;border:1px solid rgba(255,255,255,.06);border-radius:12px;display:flex;flex-direction:column;padding:0 6px;margin:0 auto;position:relative;z-index:5;box-shadow:0 1px 3px rgba(0,0,0,.08);height:28px;transform-origin:top center;overflow:hidden;transition:height .45s cubic-bezier(.22,1,.36,1),padding .45s cubic-bezier(.22,1,.36,1),opacity .35s ease,border-radius .45s cubic-bezier(.22,1,.36,1),transform .45s cubic-bezier(.22,1,.36,1)}
 .header-area.header-closed .header-container{height:0;padding:0;opacity:0;border:none;box-shadow:none;pointer-events:none;transform:translateY(-10px) scaleY(.9)}
 .header-area.welcome-header:not(.welcome-collapsed) .header-container{height:60px;padding:0 10px;border-radius:20px}
-.header-area.welcome-header.welcome-collapsed .header-container{height:36px;padding:0 6px;border-radius:14px}
+.header-area.welcome-header.welcome-collapsed .header-container{height:28px;padding:0 6px;border-radius:12px}
 
 @keyframes headerSlideOpen{0%{opacity:0;transform:translateY(-14px) scaleY(.9)}100%{opacity:1;transform:translateY(0) scaleY(1)}}
 .header-area:not(.header-closed) .header-container{animation:headerSlideOpen .45s cubic-bezier(.22,1,.36,1) forwards}
@@ -32,23 +38,26 @@
 /* ── INTERNALS ── */
 .header-top-row{display:flex;align-items:center;width:100%;height:100%;flex-shrink:0;position:relative}
 
-.header-avatar-toggle{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:28px;height:28px;background:transparent;border:none;display:flex;align-items:center;justify-content:center;z-index:6;padding:0;cursor:pointer;transition:left .5s cubic-bezier(.4,0,.2,1),width .5s cubic-bezier(.4,0,.2,1),height .5s cubic-bezier(.4,0,.2,1),transform .18s ease}
+/* ✅ Avatar 24px — 28px bar me perfectly fit (2px breathing each side) */
+.header-avatar-toggle{position:absolute;left:6px;top:50%;transform:translateY(-50%);width:24px;height:24px;background:transparent;border:none;display:flex;align-items:center;justify-content:center;z-index:6;padding:0;cursor:pointer;transition:left .5s cubic-bezier(.4,0,.2,1),width .5s cubic-bezier(.4,0,.2,1),height .5s cubic-bezier(.4,0,.2,1),transform .18s ease}
 .header-avatar-toggle:hover{transform:translateY(-50%) scale(1.06)}
 .header-avatar-toggle:active{transform:translateY(-50%) scale(.94)}
 .pure-circle{width:100%;height:100%;background:#fff;border-radius:50%;box-shadow:0 0 5px rgba(255,255,255,.18),0 1px 3px rgba(0,0,0,.1);position:relative;display:flex;align-items:center;justify-content:center;z-index:2}
 .face-group{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5px;transition:transform .12s ease-out,gap .5s ease;will-change:transform}
-.capsule-eyes{display:flex;align-items:center;gap:4px;z-index:2;transition:gap .5s ease}
-.capsule-eye{width:3.5px;height:8px;background:#0a0a0a;border-radius:50px;transition:transform .07s ease-out,width .5s cubic-bezier(.4,0,.2,1),height .5s cubic-bezier(.4,0,.2,1);transform-box:fill-box;transform-origin:center}
-.mouth{width:4px;height:1px;background:#0a0a0a;border-radius:2px;transition:all .3s cubic-bezier(.34,1.56,.64,1);transform-origin:center}
-.mouth.happy{width:7px;height:2.5px;border-radius:0 0 5px 5px}
-.mouth.thinking{width:3.5px;height:3.5px;border-radius:50%;background:transparent;border:1.2px solid #0a0a0a}
-.mouth.surprised{width:3.5px;height:4px;border-radius:50%;background:#0a0a0a}
-.mouth.sad{width:6px;height:2.5px;border-radius:3px 3px 0 0;transform:translateY(.8px)}
-.mouth.excited{width:8px;height:3px;border-radius:0 0 6px 6px}
-.mouth.sleepy{width:4px;height:1.2px;border-radius:2px}
-.mouth.love{width:5px;height:2.5px;border-radius:0 0 50% 50%;background:#ef4444}
-.mouth.confused{width:6px;height:1.5px;border-radius:2px;transform:rotate(-8deg) translateX(.4px)}
+.capsule-eyes{display:flex;align-items:center;gap:3.5px;z-index:2;transition:gap .5s ease}
+.capsule-eye{width:3px;height:7px;background:#0a0a0a;border-radius:50px;transition:transform .07s ease-out,width .5s cubic-bezier(.4,0,.2,1),height .5s cubic-bezier(.4,0,.2,1);transform-box:fill-box;transform-origin:center}
+.mouth{width:3.5px;height:1px;background:#0a0a0a;border-radius:2px;transition:all .3s cubic-bezier(.34,1.56,.64,1);transform-origin:center}
+.mouth.happy{width:6px;height:2.2px;border-radius:0 0 5px 5px}
+.mouth.thinking{width:3.2px;height:3.2px;border-radius:50%;background:transparent;border:1.1px solid #0a0a0a}
+.mouth.surprised{width:3.2px;height:3.6px;border-radius:50%;background:#0a0a0a}
+.mouth.sad{width:5.5px;height:2.2px;border-radius:3px 3px 0 0;transform:translateY(.8px)}
+.mouth.excited{width:7px;height:2.6px;border-radius:0 0 6px 6px}
+.mouth.sleepy{width:3.5px;height:1.1px;border-radius:2px}
+.mouth.love{width:4.5px;height:2.2px;border-radius:0 0 50% 50%;background:#ef4444}
+.mouth.confused{width:5.5px;height:1.4px;border-radius:2px;transform:rotate(-8deg) translateX(.4px)}
 .pure-circle.blinking .capsule-eye{transform:scaleY(.1)!important;transition:transform .05s ease!important}
+
+/* ── HERO MODE — desktop sizes unchanged (60px bar, 48px avatar) ── */
 .header-area.welcome-header:not(.welcome-collapsed) .header-avatar-toggle{left:calc(50% - 24px);width:48px;height:48px}
 .header-area.welcome-header:not(.welcome-collapsed) .pure-circle{box-shadow:0 0 12px rgba(255,255,255,.25),0 2px 8px rgba(0,0,0,.12)}
 .header-area.welcome-header:not(.welcome-collapsed) .capsule-eye{width:5px;height:12px}
@@ -57,7 +66,7 @@
 .header-area.welcome-header:not(.welcome-collapsed) .mouth{width:6px;height:1.5px}
 .header-area.welcome-header:not(.welcome-collapsed) .mouth.happy{width:10px;height:3.5px}
 .header-area.welcome-header:not(.welcome-collapsed) .mouth.excited{width:12px;height:4px}
-.header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:6px;width:28px;height:28px}
+.header-area.welcome-header.welcome-collapsed .header-avatar-toggle{left:6px;width:24px;height:24px}
 
 .avatar-hand{position:absolute;opacity:0;pointer-events:none;z-index:1;transition:opacity .4s ease,transform .4s cubic-bezier(.34,1.56,.64,1)}
 .avatar-hand-left{width:8px;height:8px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,.1);right:calc(100% + 4px);top:50%;transform:translateY(-50%) scale(.3)}
@@ -77,12 +86,12 @@
 .header-area.welcome-header.welcome-collapsed .header-title-area{opacity:1;pointer-events:auto}
 
 /* ── OPEN/CLOSE ARROW — PERMANENTLY FIXED POSITION ──
-   ✅ top:18px FIXED hai (36px height ka exact center)
+   ✅ top:14px FIXED hai (28px height ka exact center)
    ✅ Header mota/patla ho → arrow MOVE NAHI karta
    ✅ Sirf opacity + scale change hota hai (smooth fade)
    ✅ Hero mode: arrow hidden (opacity 0) — position irrelevant
    ✅ Collapsed/Chat: arrow visible at SAME fixed spot */
-.header-close-btn{position:absolute;right:6px;top:18px;transform:translateY(-50%) scale(1);width:28px;height:28px;border:none;background:rgba(255,255,255,.04);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#a1a1aa;overflow:hidden;z-index:7;transition:background .2s ease,color .2s ease,opacity .4s ease,transform .35s cubic-bezier(.22,1,.36,1)}
+.header-close-btn{position:absolute;right:6px;top:14px;transform:translateY(-50%) scale(1);width:24px;height:24px;border:none;background:rgba(255,255,255,.04);border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#a1a1aa;overflow:hidden;z-index:7;transition:background .2s ease,color .2s ease,opacity .4s ease,transform .35s cubic-bezier(.22,1,.36,1)}
 .header-close-btn:hover{background:rgba(255,255,255,.08);color:#fff}
 .header-close-btn:active{transform:translateY(-50%) scale(.94)}
 .header-close-btn svg{width:12px;height:12px;transition:transform .25s cubic-bezier(.22,1,.36,1);position:relative;z-index:1}
@@ -95,7 +104,7 @@
 .header-close-btn:hover::before{opacity:1;transform:translateX(-50%) translateY(0)}
 
 .single-title-wrap{display:flex;align-items:center;justify-content:center;width:100%;height:100%;gap:5px;animation:hdrFadeIn .35s ease}
-.single-title-text{font-family:'Inter',sans-serif;font-size:.78rem;font-weight:600;color:#fff!important;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;cursor:default}
+.single-title-text{font-family:'Inter',sans-serif;font-size:.78rem;font-weight:600;color:#fff!important;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px;cursor:default;line-height:1.2}
 .single-title-wrap:hover .single-title-text{color:#fff!important}
 .single-title-menu-btn{width:16px;height:16px;border:none;background:transparent;border-radius:4px;cursor:pointer;color:#71717a;display:flex;align-items:center;justify-content:center;opacity:0;flex-shrink:0;transition:all .18s ease}
 .single-title-wrap:hover .single-title-menu-btn{opacity:1}

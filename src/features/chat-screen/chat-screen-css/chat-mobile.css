@@ -1,13 +1,20 @@
 /* ==========================================================================
-   chat-mobile.css — MOBILE CHAT + THREE-LINE MENU OVERRIDES
+   chat-mobile.css — MOBILE CHAT + TOP LAYER + THREE-LINE MENU OVERRIDES
    Must load AFTER chat-main.css.
-   --------------------------------------------------------------------------
-   · Three-line menu (.mm-wrap): tight top-right corner (top:4px, right:6px)
-   · Sidebar-palette menu window, zero shadow, zero blur
-   · Chat bubbles, timeline, modals responsive adjustments
    ========================================================================== */
 
 @media(max-width:768px){
+
+  /* ✅ TOP LAYER — mobile heights */
+  .main-panel{--top-layer-h:36px;--top-layer-hero:60px}
+
+  /* ==========================================================================
+     ✅ CONTENT PADDING — CONSTANT (header open/close se ZERO farak)
+     Dono states ka padding SAME → messages bilkul nahi hilenge.
+     !important → header-mobile.css / app.css ke override ko beat karta hai.
+     ========================================================================== */
+  html .main-area .main-panel.chat-active .chat-screen,
+  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:40px!important}
 
   /* ── CHAT MESSAGES ── */
   .chat-messages{width:95%;padding:3px 0 5px}
@@ -19,10 +26,7 @@
   .timeline-system:hover .timeline-window{width:160px}
   .scroll-to-bottom-btn{bottom:56px;right:10px;width:26px;height:26px}
 
-  /* ── THREE-LINE MENU · TIGHT TOP-RIGHT CORNER ──
-     Desktop: top:6px, right:14px
-     Mobile:  top:4px, right:6px   ← aur upar + aur right
-     Menu button corner ke bilkul paas, menu glued underneath. */
+  /* ── THREE-LINE MENU · tight top-right corner ── */
   .mm-wrap{
     top:4px!important;
     right:6px!important;
@@ -56,13 +60,13 @@
   .mm-item svg{width:15px!important;height:15px!important}
   .mm-theme-toggle{margin-top:2px!important}
 
-  /* ── CHAT RULES MODAL (mobile) ── */
+  /* ── CHAT RULES MODAL ── */
   .cr-modal{border-radius:14px}
   .cr-header{padding:16px 18px}
   .cr-body{padding:14px 18px}
   .cr-footer{padding:12px 18px}
 
-  /* ── MODEL HUB MODAL (mobile) ── */
+  /* ── MODEL HUB MODAL ── */
   .mh-modal{border-radius:14px}
   .mh-header{padding:14px 18px}
   .mh-categories{padding:8px 18px}
@@ -71,12 +75,16 @@
 }
 
 @media(max-width:380px){
-  /* ── Even tighter on small phones ── */
+  .main-panel{--top-layer-h:34px;--top-layer-hero:58px}
   .mm-wrap{top:3px!important;right:5px!important}
   .mm-menu{min-width:160px!important;max-width:min(220px,82vw)!important}
   .scroll-to-bottom-btn{right:8px}
+
+  /* ✅ Small phones pe bhi CONSTANT padding */
+  html .main-area .main-panel.chat-active .chat-screen,
+  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:38px!important}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .mm-wrap,.mm-btn,.mm-line,.mm-menu,.mm-item,.cr-modal,.mh-modal{animation:none!important;transition:none!important}
+  .mm-wrap,.mm-btn,.mm-line,.mm-menu,.mm-item,.cr-modal,.mh-modal,.main-panel::before{animation:none!important;transition:none!important}
 }
