@@ -1,4 +1,4 @@
-/** input-ui.ts — SMOOTH NO-FLICKER TREE SELECTOR + MOBILE KEYBOARD INTEGRATION */
+/** input-ui.ts — SMOOTH NO-FLICKER TREE SELECTOR + AUTO RESPONSIVE INPUT */
 import { eventBus } from '../../../event-bus';
 import { getAllSavedProviders } from '../../../core/crypto';
 import { fetchModelsForProvider } from '../../../core/ai-router';
@@ -26,8 +26,102 @@ function save(key: string, val: string): void {
 export function getSelectedProvider(): string { return selectedProviderId; }
 export function getSelectedModel(): string { return selectedModelId; }
 
+/* ─────────────────────────────────────────────────────────────────────
+   ✅ AUTO RESPONSIVE INPUT POSITIONING
+   · matchMedia se device detect karta hai
+   · Mobile pe input ko bottom pe FIX karta hai (inline !important styles)
+   · Resize / orientation change pe auto adjust
+   · Keyboard (visualViewport) handle karta hai
+   ───────────────────────────────────────────────────────────────────── */
+function setupResponsiveInput(
+  inputContainer: HTMLElement,
+  inputField: HTMLTextAreaElement,
+  mainPanel: HTMLElement | null
+): void {
+  const mobileQuery = window.matchMedia('(max-width: 768px)');
+
+  const MOBILE_PROPS: Array<[string, string]> = [
+    ['position', 'fixed'],
+    ['bottom', '0'],
+    ['left', '0'],
+    ['right', '0'],
+    ['top', 'auto'],
+    ['width', '100%'],
+    ['max-width', '100%'],
+    ['margin', '0'],
+    ['z-index', '100'],
+    ['border-radius', '16px 16px 0 0'],
+    ['opacity', '1'],
+    ['visibility', 'visible'],
+    ['display', 'flex'],
+    ['flex-direction', 'column'],
+  ];
+
+  const applyLayout = (): void => {
+    if (mobileQuery.matches) {
+      // ✅ MOBILE: bottom pe pin karo, visible rakho
+      MOBILE_PROPS.forEach(([prop, val]) => {
+        inputContainer.style.setProperty(prop, val, 'important');
+      });
+      // Safe area for iOS notch
+      const safeBottom = 'env(safe-area-inset-bottom, 0px)';
+      inputContainer.style.setProperty('padding-bottom', `calc(6px + ${safeBottom})`, 'important');
+    } else {
+      // 💻 DESKTOP: inline styles hatao, CSS rules apply honge
+      MOBILE_PROPS.forEach(([prop]) => {
+        inputContainer.style.removeProperty(prop);
+      });
+      inputContainer.style.removeProperty('padding-bottom');
+    }
+  };
+
+  // Breakpoint change listener
+  const onQueryChange = (): void => applyLayout();
+  if (typeof mobileQuery.addEventListener === 'function') {
+    mobileQuery.addEventListener('change', onQueryChange);
+  } else {
+    // Older browsers fallback
+    (mobileQuery as unknown as { addListener: (fn: () => void) => void }).addListener(onQueryChange);
+  }
+
+  // Resize + orientation
+  window.addEventListener('resize', applyLayout);
+  window.addEventListener('orientationchange', () => {
+    setTimeout(applyLayout, 120);
+  });
+
+  // ✅ KEYBOARD detection via visualViewport
+  if ('visualViewport' in window && window.visualViewport) {
+    const vv = window.visualViewport;
+    vv.addEventListener('resize', () => {
+      if (!mobileQuery.matches) return;
+      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
+      if (keyboardHeight > 100) {
+        mainPanel?.classList.add('keyboard-open');
+        // Input ko keyboard ke upar rakho
+        inputContainer.style.setProperty('bottom', '0', 'important');
+      } else {
+        mainPanel?.classList.remove('keyboard-open');
+      }
+      // Chat ko bottom pe scroll karo jab keyboard khule
+      const chatMessages = document.querySelector('.chat-messages');
+      if (chatMessages && keyboardHeight > 100) {
+        setTimeout(() => {
+          chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+        }, 100);
+      }
+    });
+  }
+
+  // Initial apply
+  applyLayout();
+  // DOM ready ke baad dobara apply (safety)
+  setTimeout(applyLayout, 50);
+  setTimeout(applyLayout, 300);
+}
+
 export function initializeInputUI(): void {
-  console.log('⌨️ Input UI (Smooth No-Flicker Selector + Mobile Keyboard Integration)');
+  console.log('⌨️ Input UI (Smooth No-Flicker Selector + Auto Responsive)');
 
   const inputField = document.querySelector('.chat-input') as HTMLTextAreaElement | null;
   const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement | null;
@@ -37,6 +131,9 @@ export function initializeInputUI(): void {
   const mainPanel = document.getElementById('mainPanel');
 
   if (!inputField || !inputContainer || !actionsBar) return;
+
+  // ✅ RESPONSIVE POSITIONING SETUP — sabse pehle
+  setupResponsiveInput(inputContainer, inputField, mainPanel);
 
   selectedProviderId = getStored('asuum_selected_provider', 'auto');
   selectedModelId = getStored('asuum_selected_model', 'auto');
@@ -313,49 +410,4 @@ export function initializeInputUI(): void {
   if (sendBtn) { sendBtn.addEventListener('click', sendMessage); sendBtn.disabled = true; }
   if (plusBtn) { plusBtn.addEventListener('click', () => { console.log('➕ Plus clicked'); }); }
   autoResize();
-
-  /* ─────────────────────────────────────────────────────────────────────
-     ✅ MOBILE KEYBOARD INTEGRATION
-     · Detects keyboard open/close via visualViewport
-     · Adds .keyboard-open class for CSS styling
-     · Smooth scroll to bottom when keyboard appears
-     ───────────────────────────────────────────────────────────────────── */
-  const isMobileDevice = window.innerWidth <= 768;
-  if (isMobileDevice && 'visualViewport' in window && mainPanel) {
-    let lastViewportHeight = window.visualViewport!.height;
-
-    const onViewportResize = (): void => {
-      const currentHeight = window.visualViewport!.height;
-      const keyboardJustOpened = currentHeight < lastViewportHeight - 100;
-      const keyboardJustClosed = currentHeight > lastViewportHeight + 100;
-
-      if (keyboardJustOpened) {
-        mainPanel.classList.add('keyboard-open');
-        const chatMessages = document.querySelector('.chat-messages');
-        if (chatMessages) {
-          setTimeout(() => {
-            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
-          }, 150);
-        }
-      } else if (keyboardJustClosed) {
-        mainPanel.classList.remove('keyboard-open');
-      }
-
-      lastViewportHeight = currentHeight;
-    };
-
-    window.visualViewport!.addEventListener('resize', onViewportResize);
-
-    inputField.addEventListener('focus', () => {
-      setTimeout(() => {
-        if (mainPanel) mainPanel.classList.add('keyboard-open');
-      }, 300);
-    });
-
-    inputField.addEventListener('blur', () => {
-      setTimeout(() => {
-        if (mainPanel) mainPanel.classList.remove('keyboard-open');
-      }, 150);
-    });
-  }
 }

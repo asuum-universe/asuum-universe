@@ -2,45 +2,79 @@
    input-mobile.css — MOBILE OVERRIDE LAYER ONLY
    Must load AFTER input-main.css.
    --------------------------------------------------------------------------
-   · Input box FIXED at bottom (professional mobile chatbot style)
-   · Full width, proper safe-area handling
-   · Reveal line also fixed at bottom
+   · FLEXBOX approach (NOT position:fixed) — 100% reliable, no clipping
+   · main-panel = flex column → input naturally sits at bottom
+   · Full width, rounded top corners, safe-area support
    ========================================================================== */
 
 @media(max-width:768px){
-  /* ✅ INPUT CONTAINER — fixed at bottom, full width */
-  .input-container{
-    position:fixed!important;
-    bottom:0!important;
-    left:0!important;
-    right:0!important;
-    width:100%!important;
-    max-width:100%!important;
-    margin:0!important;
-    border-radius:16px 16px 0 0!important;  /* ✅ top rounded, bottom flat */
-    padding:0 0 calc(6px + env(safe-area-inset-bottom)) 0!important;
-    border-top:.5px solid var(--input-match-border)!important;
-    border-left:none!important;
-    border-right:none!important;
-    border-bottom:none!important;
-    box-shadow:0 -2px 10px rgba(0,0,0,.08)!important;
-    z-index:100!important;
+
+  /* ✅ MAIN PANEL — flex column banao taaki input bottom pe jaye */
+  html .main-area .main-panel{
+    display:flex!important;
+    flex-direction:column!important;
   }
 
+  /* ✅ CHAT SCREEN — bachi hui jagah fill kare */
+  html .main-panel .chat-screen{
+    flex:1 1 auto!important;
+    min-height:0!important;
+  }
+
+  /* ✅ INPUT CONTAINER — in-flow at bottom, full width
+     (position:fixed NAHI — flexbox se reliable bottom placement) */
+  html .main-panel .input-container,
+  html .main-panel.chat-active .input-container:not(.input-closed),
+  html .main-panel.chat-active .input-container.input-closed,
+  html .main-panel:not(.chat-active) .input-container{
+    position:relative!important;
+    top:auto!important;
+    left:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    transform:none!important;
+    flex-shrink:0!important;
+    margin:0!important;
+    margin-top:auto!important;              /* ✅ flex column mein bottom pe push */
+    width:100%!important;
+    max-width:100%!important;
+    border-radius:16px 16px 0 0!important;   /* ✅ top rounded, bottom flat */
+    border:none!important;
+    border-top:.5px solid var(--input-match-border)!important;
+    box-shadow:0 -2px 12px rgba(0,0,0,.08)!important;
+    background:var(--input-match-bg)!important;
+    padding:0 0 calc(6px + env(safe-area-inset-bottom)) 0!important;
+    z-index:50!important;
+    opacity:1!important;
+    visibility:visible!important;
+    display:flex!important;
+  }
+
+  /* ✅ chat-main.css ka margin-bottom:8px override karo */
+  html .main-panel.chat-active .input-container:not(.input-closed){
+    margin-bottom:0!important;
+  }
+
+  /* ✅ CLOSED STATE — minimal bar at bottom */
   html body .input-container.input-closed,
-  .main-panel .input-container.input-closed,
-  .main-panel.chat-active .input-container.input-closed,
-  .main-panel:not(.chat-active) .input-container.input-closed{
+  html .main-panel .input-container.input-closed,
+  html .main-panel.chat-active .input-container.input-closed,
+  html .main-panel:not(.chat-active) .input-container.input-closed{
     min-height:48px!important;
     height:48px!important;
     padding:0 0 calc(0px + env(safe-area-inset-bottom)) 0!important;
     background:var(--input-match-bg)!important;
-    border-color:var(--input-match-border)!important;
-    box-shadow:0 -2px 10px rgba(0,0,0,.08)!important;
+    border:none!important;
+    border-top:.5px solid var(--input-match-border)!important;
+    box-shadow:0 -2px 12px rgba(0,0,0,.06)!important;
+    cursor:pointer!important;
+    display:flex!important;
+    opacity:1!important;
+    visibility:visible!important;
   }
 
-  /* ✅ KEYBOARD OPEN STATE */
-  .main-panel.keyboard-open .input-container{
+  /* ✅ KEYBOARD OPEN STATE — tighter, connected feel */
+  html .main-panel.keyboard-open .input-container:not(.input-closed){
     padding-bottom:6px!important;
     box-shadow:0 -4px 20px rgba(0,0,0,.12)!important;
   }
@@ -63,23 +97,23 @@
 
   .provider-trigger{font-size:.72rem;padding:5px 11px}
   .provider-trigger .provider-label{max-width:150px}
-  .provider-dropdown{width:220px;max-height:200px;bottom:calc(100% + 8px)}
+  .provider-dropdown{width:220px;max-height:200px}
 
   .input-close-btn{
     width:40px;
     height:22px;
-    bottom:calc(0px + env(safe-area-inset-bottom));
   }
   .input-close-btn svg{width:12px;height:12px}
   .input-close-btn:hover{height:24px}
 
-  /* ✅ FIXED REVEAL — bottom pe fix */
-  .input-fixed-reveal{
+  /* ✅ FIXED REVEAL — bottom center */
+  html body .input-fixed-reveal{
     position:fixed!important;
-    bottom:calc(12px + env(safe-area-inset-bottom))!important;
-    left:50%!important;
-    transform:translateX(-50%)!important;
     top:auto!important;
+    bottom:calc(14px + env(safe-area-inset-bottom))!important;
+    left:50%!important;
+    right:auto!important;
+    transform:translateX(-50%)!important;
     height:30px;
     z-index:99999;
   }
@@ -89,53 +123,28 @@
   .input-reveal-box svg{width:13px;height:13px}
   .input-reveal-box:hover{height:24px}
 
-  /* ✅ CHAT SCREEN — input ke liye space */
-  .main-panel.chat-active .chat-screen{
-    padding-bottom:calc(100px + env(safe-area-inset-bottom))!important;
-  }
-
-  /* ✅ WELCOME MODE — input center mein rahega */
-  .main-panel:not(.chat-active) .input-container{
-    position:relative!important;
-    bottom:auto!important;
-    left:auto!important;
-    right:auto!important;
-    width:95%!important;
-    max-width:95%!important;
-    margin:0 auto 20px auto!important;
-    border-radius:14px!important;
-    padding:0 0 6px 0!important;
-    border:.5px solid var(--input-match-border)!important;
-    box-shadow:0 1px 3px rgba(0,0,0,.05)!important;
-  }
-  .main-panel:not(.chat-active) .input-container.input-closed{
-    min-height:48px!important;
-    height:48px!important;
-    padding:0 0 6px 0!important;
-    margin:0 auto 20px auto!important;
-  }
-  .main-panel:not(.chat-active) .input-fixed-reveal{
-    position:relative!important;
-    bottom:auto!important;
-    left:auto!important;
-    transform:none!important;
-    margin:0 auto!important;
-    display:flex!important;
+  /* ✅ CHAT MESSAGES — thoda bottom breathing room */
+  html .main-panel.chat-active .chat-messages{
+    padding-bottom:12px!important;
   }
 }
 
 @media(max-width:480px){
-  .input-container{
+  html .main-panel .input-container,
+  html .main-panel.chat-active .input-container:not(.input-closed),
+  html .main-panel.chat-active .input-container.input-closed,
+  html .main-panel:not(.chat-active) .input-container{
     border-radius:14px 14px 0 0!important;
     padding:0 0 calc(5px + env(safe-area-inset-bottom)) 0!important;
   }
+
   html body .input-container.input-closed,
-  .main-panel .input-container.input-closed,
-  .main-panel.chat-active .input-container.input-closed,
-  .main-panel:not(.chat-active) .input-container.input-closed{
+  html .main-panel .input-container.input-closed,
+  html .main-panel.chat-active .input-container.input-closed,
+  html .main-panel:not(.chat-active) .input-container.input-closed{
     min-height:44px!important;
     height:44px!important;
-    padding:0 0 calc(0px + env(safe-area-inset-bottom)) 0!important;
+    border-radius:14px 14px 0 0!important;
   }
 
   .chat-input{
@@ -161,12 +170,8 @@
   .input-close-btn svg{width:11px;height:11px}
   .input-close-btn:hover{height:22px}
 
-  .main-panel.chat-active .chat-screen{
-    padding-bottom:calc(92px + env(safe-area-inset-bottom))!important;
-  }
-
-  .input-fixed-reveal{
-    bottom:calc(10px + env(safe-area-inset-bottom))!important;
+  html body .input-fixed-reveal{
+    bottom:calc(12px + env(safe-area-inset-bottom))!important;
     height:28px;
   }
   .input-reveal-line{width:64px;height:4px}
