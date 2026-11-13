@@ -4,6 +4,7 @@ import { getAllSavedProviders } from '../../../core/crypto';
 import { fetchModelsForProvider } from '../../../core/ai-router';
 
 const MAX_HEIGHT = 200;
+const MOBILE_BP = 768;
 const ICON_MINIMIZE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
 const ICON_EXPAND = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>`;
 const ICON_ARROW = `<svg class="tree-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>`;
@@ -22,33 +23,29 @@ function getStored(key: string, fb: string): string {
 function save(key: string, val: string): void {
   try { localStorage.setItem(key, val); } catch {}
 }
+function isMobileView(): boolean {
+  return window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches;
+}
 
 export function getSelectedProvider(): string { return selectedProviderId; }
 export function getSelectedModel(): string { return selectedModelId; }
 
 /* ─────────────────────────────────────────────────────────────────────
-   ✅ AUTO RESPONSIVE INPUT POSITIONING
-   · matchMedia se device detect karta hai
-   · Mobile pe input ko PERFECTLY CENTERED floating card banata hai
-   · left:50% + translateX(-50%) + fixed width = bulletproof centering
-   · Resize / orientation change pe auto adjust
-   · Keyboard (visualViewport) handle karta hai
+   AUTO RESPONSIVE INPUT POSITIONING
+   · Mobile → centered floating card, 10px side gaps
+   · overflow VISIBLE → provider dropdown clip nahi hoti
    ───────────────────────────────────────────────────────────────────── */
 function setupResponsiveInput(
   inputContainer: HTMLElement,
-  inputField: HTMLTextAreaElement,
+  _inputField: HTMLTextAreaElement,
   mainPanel: HTMLElement | null
 ): void {
-  const mobileQuery = window.matchMedia('(max-width: 768px)');
+  const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BP}px)`);
 
-  /* ✅ GAP SETTINGS — yahan se adjust karo
-     SIDE_GAP_PX : left/right dono taraf ka gap (screen boundary se)
-     BOTTOM_GAP  : screen ke bottom se gap
-     KEYBOARD_GAP: keyboard khulne par bottom gap */
-  const SIDE_GAP_PX = 16;
+  const SIDE_GAP_PX = 10;
   const WIDTH_CALC = `calc(100% - ${SIDE_GAP_PX * 2}px)`;
-  const BOTTOM_GAP = 'calc(12px + env(safe-area-inset-bottom, 0px))';
-  const KEYBOARD_GAP = '8px';
+  const BOTTOM_GAP = 'calc(16px + env(safe-area-inset-bottom, 0px))';
+  const KEYBOARD_GAP = '10px';
 
   const MOBILE_PROPS: Array<[string, string]> = [
     ['position', 'fixed'],
@@ -63,6 +60,7 @@ function setupResponsiveInput(
     ['margin', '0'],
     ['z-index', '100'],
     ['border-radius', '16px'],
+    ['overflow', 'visible'],
     ['opacity', '1'],
     ['visibility', 'visible'],
     ['display', 'flex'],
@@ -71,19 +69,16 @@ function setupResponsiveInput(
 
   const applyLayout = (): void => {
     if (mobileQuery.matches) {
-      // ✅ MOBILE: perfectly centered floating card
       MOBILE_PROPS.forEach(([prop, val]) => {
         inputContainer.style.setProperty(prop, val, 'important');
       });
     } else {
-      // 💻 DESKTOP: inline styles hatao, CSS rules apply honge
       MOBILE_PROPS.forEach(([prop]) => {
         inputContainer.style.removeProperty(prop);
       });
     }
   };
 
-  // Breakpoint change listener
   const onQueryChange = (): void => applyLayout();
   if (typeof mobileQuery.addEventListener === 'function') {
     mobileQuery.addEventListener('change', onQueryChange);
@@ -91,13 +86,9 @@ function setupResponsiveInput(
     (mobileQuery as unknown as { addListener: (fn: () => void) => void }).addListener(onQueryChange);
   }
 
-  // Resize + orientation
   window.addEventListener('resize', applyLayout);
-  window.addEventListener('orientationchange', () => {
-    setTimeout(applyLayout, 120);
-  });
+  window.addEventListener('orientationchange', () => { setTimeout(applyLayout, 120); });
 
-  // ✅ KEYBOARD detection via visualViewport
   if ('visualViewport' in window && window.visualViewport) {
     const vv = window.visualViewport;
     vv.addEventListener('resize', () => {
@@ -110,14 +101,13 @@ function setupResponsiveInput(
         mainPanel?.classList.remove('keyboard-open');
         inputContainer.style.setProperty('bottom', BOTTOM_GAP, 'important');
       }
-      // ✅ Centering hamesha maintain rahe (keyboard ke dauran bhi)
       inputContainer.style.setProperty('left', '50%', 'important');
       inputContainer.style.setProperty('right', 'auto', 'important');
       inputContainer.style.setProperty('transform', 'translateX(-50%)', 'important');
       inputContainer.style.setProperty('width', WIDTH_CALC, 'important');
       inputContainer.style.setProperty('max-width', WIDTH_CALC, 'important');
+      inputContainer.style.setProperty('overflow', 'visible', 'important');
 
-      // Chat ko bottom pe scroll karo jab keyboard khule
       const chatMessages = document.querySelector('.chat-messages');
       if (chatMessages && keyboardHeight > 100) {
         setTimeout(() => {
@@ -127,14 +117,13 @@ function setupResponsiveInput(
     });
   }
 
-  // Initial apply
   applyLayout();
   setTimeout(applyLayout, 50);
   setTimeout(applyLayout, 300);
 }
 
 export function initializeInputUI(): void {
-  console.log('⌨️ Input UI (Smooth No-Flicker Selector + Auto Responsive)');
+  console.log('⌨️ Input UI (Compact Dropdown · Reveal At Close-Button Spot · Zero Vibration)');
 
   const inputField = document.querySelector('.chat-input') as HTMLTextAreaElement | null;
   const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement | null;
@@ -145,7 +134,6 @@ export function initializeInputUI(): void {
 
   if (!inputField || !inputContainer || !actionsBar) return;
 
-  // ✅ RESPONSIVE POSITIONING SETUP — sabse pehle
   setupResponsiveInput(inputContainer, inputField, mainPanel);
 
   selectedProviderId = getStored('asuum_selected_provider', 'auto');
@@ -159,17 +147,21 @@ export function initializeInputUI(): void {
 
   const trigger = document.createElement('button');
   trigger.className = 'provider-trigger';
+  trigger.type = 'button';
   trigger.title = 'Select Provider & Model';
+  trigger.setAttribute('aria-haspopup', 'tree');
+  trigger.setAttribute('aria-expanded', 'false');
 
   const dropdown = document.createElement('div');
   dropdown.className = 'provider-dropdown';
+  dropdown.setAttribute('role', 'tree');
 
   function updateTriggerLabel(): void {
     let label = 'Auto';
     if (selectedProviderId !== 'auto') {
       label = selectedProviderId.charAt(0).toUpperCase() + selectedProviderId.slice(1);
       if (selectedModelId !== 'auto') {
-        const short = selectedModelId.length > 18 ? selectedModelId.slice(0, 16) + '…' : selectedModelId;
+        const short = selectedModelId.length > 16 ? selectedModelId.slice(0, 14) + '…' : selectedModelId;
         label += ' / ' + short;
       }
     }
@@ -181,11 +173,28 @@ export function initializeInputUI(): void {
     return !!panel && !panel.classList.contains('chat-active');
   }
 
+  function applyDropdownPosition(): void {
+    const above = isMobileView() || !isWelcomeMode();
+    dropdown.classList.toggle('pos-above', above);
+    dropdown.classList.toggle('pos-below', !above);
+  }
+
+  function syncDropdownHeight(): void {
+    if (!isMobileView()) { dropdown.style.removeProperty('max-height'); return; }
+    const r = selectorWrap.getBoundingClientRect();
+    const vvOffset = window.visualViewport?.offsetTop ?? 0;
+    const available = r.top - vvOffset - 16;
+    const cap = window.innerWidth <= 480 ? 222 : 240;
+    const h = Math.max(120, Math.min(available, cap));
+    dropdown.style.setProperty('max-height', `${h}px`, 'important');
+  }
+
   async function buildDropdownContent(): Promise<DocumentFragment> {
     const frag = document.createDocumentFragment();
 
     const isAutoActive = selectedProviderId === 'auto' && selectedModelId === 'auto';
     const autoRow = document.createElement('button');
+    autoRow.type = 'button';
     autoRow.className = 'tree-item tree-auto' + (isAutoActive ? ' active' : '');
     autoRow.innerHTML = '<span class="tree-label">Auto (Smart)</span>' + (isAutoActive ? '<span class="tree-tick">' + ICON_TICK + '</span>' : '');
     autoRow.onclick = (e) => { e.stopPropagation(); select('auto', 'auto'); };
@@ -210,7 +219,9 @@ export function initializeInputUI(): void {
       frag.appendChild(sep);
 
       const provRow = document.createElement('button');
+      provRow.type = 'button';
       provRow.className = 'tree-item tree-provider' + (isExpanded ? ' expanded' : '');
+      provRow.setAttribute('aria-expanded', String(isExpanded));
       provRow.innerHTML =
         '<span class="tree-arrow-wrap">' + ICON_ARROW + '</span>' +
         '<span class="tree-label">' + pid.charAt(0).toUpperCase() + pid.slice(1) + '</span>';
@@ -222,12 +233,13 @@ export function initializeInputUI(): void {
           const newFrag = await buildDropdownContent();
           dropdown.innerHTML = '';
           dropdown.appendChild(newFrag);
+          syncDropdownHeight();
         });
       };
       frag.appendChild(provRow);
 
       if (isExpanded) {
-        let models = cachedModelsMap[pid];
+        const models = cachedModelsMap[pid];
         if (!models) {
           const loading = document.createElement('div');
           loading.className = 'tree-loading';
@@ -245,6 +257,18 @@ export function initializeInputUI(): void {
                   const newFrag = await buildDropdownContent();
                   dropdown.innerHTML = '';
                   dropdown.appendChild(newFrag);
+                  syncDropdownHeight();
+                });
+              }
+            }).catch(() => {
+              cachedModelsMap[pid] = [];
+              isFetching = false;
+              if (dropdownOpen) {
+                requestAnimationFrame(async () => {
+                  const newFrag = await buildDropdownContent();
+                  dropdown.innerHTML = '';
+                  dropdown.appendChild(newFrag);
+                  syncDropdownHeight();
                 });
               }
             });
@@ -252,10 +276,18 @@ export function initializeInputUI(): void {
         } else {
           const isAutoModActive = selectedProviderId === pid && selectedModelId === 'auto';
           const autoModRow = document.createElement('button');
+          autoModRow.type = 'button';
           autoModRow.className = 'tree-item tree-model' + (isAutoModActive ? ' active' : '');
           autoModRow.innerHTML = '<span class="tree-label">Auto Model</span>' + (isAutoModActive ? '<span class="tree-tick">' + ICON_TICK + '</span>' : '');
           autoModRow.onclick = (e) => { e.stopPropagation(); select(pid, 'auto'); };
           frag.appendChild(autoModRow);
+
+          if (models.length === 0) {
+            const none = document.createElement('div');
+            none.className = 'tree-empty';
+            none.textContent = 'No models available';
+            frag.appendChild(none);
+          }
 
           for (const mid of models) {
             const isActive = selectedProviderId === pid && selectedModelId === mid;
@@ -265,6 +297,7 @@ export function initializeInputUI(): void {
             frag.appendChild(mSep);
 
             const modRow = document.createElement('button');
+            modRow.type = 'button';
             modRow.className = 'tree-item tree-model' + (isActive ? ' active' : '');
             modRow.innerHTML = '<span class="tree-label">' + mid + '</span>' + (isActive ? '<span class="tree-tick">' + ICON_TICK + '</span>' : '');
             modRow.onclick = (e) => { e.stopPropagation(); select(pid, mid); };
@@ -281,6 +314,7 @@ export function initializeInputUI(): void {
     const frag = await buildDropdownContent();
     dropdown.innerHTML = '';
     dropdown.appendChild(frag);
+    syncDropdownHeight();
   }
 
   function select(provId: string, modId: string): void {
@@ -291,34 +325,27 @@ export function initializeInputUI(): void {
     updateTriggerLabel();
     closeDropdown();
     document.dispatchEvent(new CustomEvent('asuum:provider-changed', { detail: { provider: provId, model: modId } }));
-    console.log('🔄 Selected:', provId, '/', modId);
   }
 
   async function openDropdown(): Promise<void> {
     dropdownOpen = true;
+    applyDropdownPosition();
+    syncDropdownHeight();
     selectorWrap.classList.add('open');
-    if (isWelcomeMode()) {
-      dropdown.classList.add('pos-below');
-      dropdown.classList.remove('pos-above');
-    } else {
-      dropdown.classList.add('pos-above');
-      dropdown.classList.remove('pos-below');
-    }
+    trigger.setAttribute('aria-expanded', 'true');
     await refreshDropdown();
   }
 
   function closeDropdown(): void {
     dropdownOpen = false;
     selectorWrap.classList.remove('open');
+    trigger.setAttribute('aria-expanded', 'false');
   }
 
   async function toggleDropdown(e?: Event): Promise<void> {
     if (e) e.stopPropagation();
-    if (dropdownOpen) {
-      closeDropdown();
-    } else {
-      await openDropdown();
-    }
+    if (dropdownOpen) closeDropdown();
+    else await openDropdown();
   }
 
   updateTriggerLabel();
@@ -330,12 +357,22 @@ export function initializeInputUI(): void {
     if (e.key === 'Escape' && dropdownOpen) closeDropdown();
   });
 
+  const refreshOpenDropdown = (): void => {
+    if (!dropdownOpen) return;
+    applyDropdownPosition();
+    syncDropdownHeight();
+  };
+  window.addEventListener('resize', refreshOpenDropdown);
+  window.addEventListener('orientationchange', () => { setTimeout(refreshOpenDropdown, 150); });
+  window.visualViewport?.addEventListener('resize', refreshOpenDropdown);
+
   selectorWrap.appendChild(trigger);
   selectorWrap.appendChild(dropdown);
   actionsBar.insertBefore(selectorWrap, actionsBar.firstChild);
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'input-close-btn';
+  closeBtn.type = 'button';
   closeBtn.title = 'Minimize input';
   closeBtn.innerHTML = ICON_MINIMIZE;
   inputContainer.appendChild(closeBtn);
@@ -346,7 +383,9 @@ export function initializeInputUI(): void {
   line.className = 'input-reveal-line';
   const box = document.createElement('button');
   box.className = 'input-reveal-box';
+  box.type = 'button';
   box.title = 'Open input';
+  box.setAttribute('aria-label', 'Open input');
   box.innerHTML = ICON_EXPAND;
   line.appendChild(box);
   fixedReveal.appendChild(line);
@@ -355,27 +394,29 @@ export function initializeInputUI(): void {
   let inputOpen = true;
 
   /* ───────────────────────────────────────────────────────────────────
-     ✅ REVEAL LINE POSITIONING
-     Close button ke BILKUL THODA NEECHE (REVEAL_GAP px)
-     · setProperty(...,'important') → CSS ke !important ko beat karta hai
-     · max()/min() clamp → screen se bahar kabhi nahi jayega
+     REVEAL — close button ki EXACT jagah pe
+     Band ka centre = close button ka centre (same spot, no offset)
+     Geometry hover pe never change → arrow zero vibration
      ─────────────────────────────────────────────────────────────────── */
-  const REVEAL_GAP = 6;    // ← close button ke neeche ka gap (px)
-  const REVEAL_H = 34;     // reveal container ki approx height (clamp ke liye)
+  const REVEAL_H = 16;
+  let revealCenterX = 0;
+  let revealCenterY = 0;
 
-  const positionRevealBelow = (bottomY: number, centerX: number): void => {
-    const desiredTop = bottomY + REVEAL_GAP;
-    // Clamp: upar 4px se kam nahi, neeche screen + safe-area ke andar
+  const placeRevealAt = (centerY: number, centerX: number): void => {
+    revealCenterY = centerY;
+    revealCenterX = centerX;
+    const desiredTop = centerY - REVEAL_H / 2;
     const topValue =
-      `max(4px, min(${desiredTop}px, calc(100% - ${REVEAL_H}px - env(safe-area-inset-bottom, 0px))))`;
-
+      `max(2px, min(${desiredTop}px, calc(100% - ${REVEAL_H}px - env(safe-area-inset-bottom, 0px))))`;
     fixedReveal.style.setProperty('position', 'fixed', 'important');
     fixedReveal.style.setProperty('display', 'flex', 'important');
+    fixedReveal.style.setProperty('height', `${REVEAL_H}px`, 'important');
     fixedReveal.style.setProperty('top', topValue, 'important');
     fixedReveal.style.setProperty('bottom', 'auto', 'important');
     fixedReveal.style.setProperty('left', `${centerX}px`, 'important');
     fixedReveal.style.setProperty('right', 'auto', 'important');
     fixedReveal.style.setProperty('transform', 'translateX(-50%)', 'important');
+    fixedReveal.style.setProperty('overflow', 'visible', 'important');
   };
 
   const hideReveal = (): void => {
@@ -397,7 +438,10 @@ export function initializeInputUI(): void {
   document.addEventListener('asuum:welcome-mode', forceOpenOnWelcome);
   const panel = document.getElementById('mainPanel');
   if (panel) {
-    new MutationObserver(() => { if (!panel.classList.contains('chat-active') && !inputOpen) forceOpenOnWelcome(); }).observe(panel, { attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => {
+      if (!panel.classList.contains('chat-active') && !inputOpen) forceOpenOnWelcome();
+      if (dropdownOpen) applyDropdownPosition();
+    }).observe(panel, { attributes: true, attributeFilter: ['class'] });
   }
 
   const toggleInput = (e?: Event): void => {
@@ -409,10 +453,9 @@ export function initializeInputUI(): void {
       inputContainer.classList.remove('input-closed');
       setTimeout(() => { inputField.focus(); inputField.style.height = ''; inputField.style.minHeight = ''; inputField.style.maxHeight = ''; inputField.style.overflowY = ''; }, 350);
     } else {
-      // ✅ Close button ka rect PEHLE capture karo (input-closed class se pehle,
-      //    kyunki us class se close button display:none ho jata hai)
+      /* Close button ka centre capture karo — reveal EXACTLY wahi banega */
       const r = closeBtn.getBoundingClientRect();
-      positionRevealBelow(r.bottom, r.left + r.width / 2);
+      placeRevealAt(r.top + r.height / 2, r.left + r.width / 2);
       inputContainer.classList.add('input-closed');
       inputField.blur();
     }
@@ -423,16 +466,16 @@ export function initializeInputUI(): void {
   line.addEventListener('click', toggleInput);
   inputContainer.addEventListener('click', (e: MouseEvent) => { if (!inputOpen && e.target !== inputField) toggleInput(); });
 
-  /* ✅ Resize / orientation pe reveal line reposition (closed state mein) */
+  /* Resize / rotate pe reveal apni jagah pe recompute (band centre same) */
   const repositionRevealIfClosed = (): void => {
     if (inputOpen) return;
     const c = inputContainer.getBoundingClientRect();
-    positionRevealBelow(c.bottom, c.left + c.width / 2);
+    const btnH = closeBtn.offsetHeight || 20;
+    placeRevealAt(c.bottom - btnH / 2, c.left + c.width / 2);
   };
   window.addEventListener('resize', repositionRevealIfClosed);
-  window.addEventListener('orientationchange', () => {
-    setTimeout(repositionRevealIfClosed, 150);
-  });
+  window.addEventListener('orientationchange', () => { setTimeout(repositionRevealIfClosed, 150); });
+  window.visualViewport?.addEventListener('resize', () => { setTimeout(repositionRevealIfClosed, 60); });
 
   const autoResize = (): void => {
     if (!inputOpen) return;
@@ -442,6 +485,7 @@ export function initializeInputUI(): void {
     if (sh > MAX_HEIGHT) { inputField.style.height = MAX_HEIGHT + 'px'; inputField.style.overflowY = 'auto'; }
     else { inputField.style.height = sh + 'px'; inputField.style.overflowY = 'hidden'; }
     if (sendBtn) sendBtn.disabled = inputField.value.trim().length === 0;
+    if (dropdownOpen) syncDropdownHeight();
   };
 
   const sendMessage = (): void => {

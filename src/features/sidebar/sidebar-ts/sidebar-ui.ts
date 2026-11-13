@@ -1,20 +1,19 @@
 /**
  * sidebar-ui.ts — SINGLE CONTROLLER (desktop + mobile)
  *
- * Owns: DOM, state, rendering, menus, theme, open/close policy.
+ * Owns: DOM, state, rendering, menus, theme, open/close policy, scrim.
  * Delegates: touch drag → sidebar-gestures.ts (destroyable).
  *
  * POLICY
- *   DESKTOP → persistent panel. Outside clicks never collapse it.
+ *   DESKTOP → persistent panel (228px). Outside clicks never collapse it.
  *   MOBILE  → drawer. Outside tap / scrim / Escape closes it.
- *             Chat click → auto-close (like new chat button).
- *             Swipe gestures → open from left half, close from anywhere.
+ *             Chat click → auto-close. Swipe open/close with live scrim.
  *
- * Re-init safe: every listener is bound to an AbortController that is
- * aborted before a new init, so HMR never duplicates handlers.
+ * LIST: flat, newest-first. No "All Chats" header, no date group labels.
+ *
+ * Re-init safe: listeners bound to an AbortController aborted before re-init.
  */
 import { getAllSessions, onHistoryChange, loadSession, startNewChat, getCurrentSession, renameSession, deleteSession } from '../../chat-screen/services/chat-store';
-import type { ChatSession } from '../../chat-screen/services/chat-store';
 import { getAllTabs, closeTab, setActiveWorkspaceFilter, onTabsChange } from '../../header/services/header-tabs-store';
 import { setExplicitNewTabClicked, clearInjectedColor } from '../../welcome-screen/welcome-ts/welcome-ui';
 import { initSidebarGestures } from './sidebar-gestures';
@@ -31,12 +30,14 @@ let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 let repositionRaf: number | null = null;
 let suppressUntil = 0;
 let lastToggleAt = 0;
+let scrimHideTimer: ReturnType<typeof setTimeout> | null = null;
 let controller: AbortController | null = null;
 let destroyGestures: (() => void) | null = null;
 
 const THEME_KEY = 'asuum_sidebar_theme';
 const MOBILE_BP = 768;
 const NARROW_BP = 380;
+const SCRIM_FADE_MS = 320;
 
 /* ───────────────────────── ICONS ───────────────────────── */
 const ICON_DOTS = `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>`;
@@ -61,8 +62,8 @@ function isOpen(): boolean {
 }
 function fallbackWidth(): number {
   if (window.innerWidth <= NARROW_BP) return 264;
-  if (isMobile()) return 288;
-  return 248;
+  if (isMobile()) return 276;
+  return 228;
 }
 function drawerWidth(): number {
   const sb = sidebarEl;
@@ -87,7 +88,9 @@ function toggleTheme(): void {
   try { localStorage.setItem(THEME_KEY, next); } catch { /* blocked */ }
 }
 
-/* ───────────────────────── SCRIM ───────────────────────── */
+/* ───────────────────────── SCRIM ─────────────────────────
+   Full-viewport, sits BEHIND the drawer. Opacity = swipe progress.
+   ---------------------------------------------------------------- */
 function ensureScrim(): HTMLElement {
   if (scrimEl) return scrimEl;
   const el = document.createElement('div');
@@ -96,7 +99,6 @@ function ensureScrim(): HTMLElement {
   el.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!isMobile()) return;
-    /* ✅ Swipe ke baad click event double-close na kare */
     if (Date.now() < suppressUntil) return;
     closeSidebar();
   });
@@ -106,23 +108,52 @@ function ensureScrim(): HTMLElement {
 }
 function syncScrim(): void {
   const el = scrimEl;
-  if (el) el.style.left = `${drawerWidth()}px`;
+  if (!el) return;
+  el.style.left = '0px';
+  el.style.right = '0px';
+  el.style.top = '0px';
+  el.style.bottom = '0px';
+}
+function cancelScrimHide(): void {
+  if (scrimHideTimer !== null) { clearTimeout(scrimHideTimer); scrimHideTimer = null; }
 }
 function showScrim(): void {
   if (!isMobile()) { hideScrim(); return; }
   const el = ensureScrim();
+  cancelScrimHide();
   syncScrim();
+  el.classList.remove('dragging');
   el.style.display = 'block';
-  el.style.opacity = '1';
   el.style.pointerEvents = '';
-  requestAnimationFrame(() => { el.classList.add('visible'); });
+  requestAnimationFrame(() => {
+    el.classList.add('visible');
+    el.style.opacity = '1';
+  });
 }
 function hideScrim(): void {
   const el = scrimEl;
   if (!el) return;
-  el.classList.remove('visible');
+  cancelScrimHide();
+  el.classList.remove('dragging', 'visible');
+  el.style.opacity = '0';
   el.style.pointerEvents = 'none';
-  setTimeout(() => { if (!el.classList.contains('visible')) el.style.display = 'none'; }, 220);
+  scrimHideTimer = setTimeout(() => {
+    scrimHideTimer = null;
+    if (!el.classList.contains('visible')) el.style.display = 'none';
+  }, SCRIM_FADE_MS);
+}
+/** Live scrim opacity while the user drags the drawer (0 → 1). */
+function setScrimProgress(progress: number): void {
+  if (!isMobile()) return;
+  const el = ensureScrim();
+  cancelScrimHide();
+  syncScrim();
+  const p = Math.max(0, Math.min(1, progress));
+  el.classList.add('dragging');
+  el.classList.remove('visible');
+  el.style.display = 'block';
+  el.style.pointerEvents = 'none';
+  el.style.opacity = p.toFixed(3);
 }
 
 /* ───────────────────── OPEN / CLOSE ───────────────────── */
@@ -174,7 +205,7 @@ export function initializeSidebarUI(): void {
   const signal = controller.signal;
 
   sidebarEl = sb;
-  console.log('📋 Sidebar UI (single controller · gestures split · CSS layered)');
+  console.log('📋 Sidebar UI (flat list · slim desktop · live swipe scrim)');
 
   applyTheme(storedTheme() || 'dark');
 
@@ -193,13 +224,13 @@ export function initializeSidebarUI(): void {
     getScrim: () => scrimEl,
     getWidth: drawerWidth,
     syncScrim,
+    setScrimProgress,
     onDragStart: () => { closeMenu(); closeBulkMenu(); },
     open: openSidebar,
     close: closeSidebar,
     suppressClicks: (ms) => { suppressUntil = Date.now() + ms; }
   });
 
-  /* Toggle — capture + delegated + keyboard */
   const onToggle = (e: Event): void => {
     const t = e.target as HTMLElement | null;
     if (!t || !t.closest('#sidebarToggle,.sb-toggle-btn')) return;
@@ -215,7 +246,6 @@ export function initializeSidebarUI(): void {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggleSidebar(); }
   }, { capture: true, signal });
 
-  /* Press-anywhere → dismiss popups only, never the sidebar */
   const dismissPopups = (e: Event): void => {
     if (Date.now() < suppressUntil) return;
     const t = e.target as HTMLElement | null;
@@ -245,7 +275,6 @@ export function initializeSidebarUI(): void {
   onHistoryChange(() => { if (!selectionMode) renderAll(); });
   onTabsChange(() => { if (!selectionMode) renderAll(); });
 
-  /* Outside click → MOBILE ONLY. Desktop panel stays open. */
   document.addEventListener('click', (e: Event) => {
     if (!isMobile()) return;
     if (Date.now() < suppressUntil) return;
@@ -284,7 +313,6 @@ export function initializeSidebarUI(): void {
   }, { signal });
 }
 
-/** Optional manual teardown (HMR / route change). */
 export function destroySidebarUI(): void {
   controller?.abort();
   controller = null;
@@ -293,6 +321,7 @@ export function destroySidebarUI(): void {
   closeMenu();
   closeBulkMenu();
   clearLongPress();
+  cancelScrimHide();
   scrimEl?.remove();
   scrimEl = null;
   sidebarEl = null;
@@ -434,7 +463,10 @@ function executeBulkDelete(): void {
   if (!getCurrentSession()) document.dispatchEvent(new Event('asuum:welcome-mode'));
 }
 
-/* ───────────────────────── RENDER ───────────────────────── */
+/* ───────────────────────── RENDER ─────────────────────────
+   Flat newest-first list. No "All Chats" header, no date labels.
+   Selection mode still gets its Cancel / count / Delete / dots bar.
+   ---------------------------------------------------------------- */
 function renderAll(): void {
   const content = document.querySelector('.sidebar-content');
   if (!content) return;
@@ -443,53 +475,33 @@ function renderAll(): void {
   const sorted = [...getAllSessions()].sort((a, b) => b.updatedAt - a.updatedAt);
   const activeId = getCurrentSession()?.id ?? null;
 
-  let html = selectionMode
-    ? `<div class="bulk-bar-sticky"><button class="bb-cancel" id="bulkCancelBtn" type="button">Cancel</button><span class="bb-count" id="bulkCount">0</span><button class="bb-delete" id="bulkDeleteBtn" type="button" title="Delete selected">${ICON_DELETE}<span class="bb-delete-text">Delete</span></button><button class="bb-dots" id="bulkDotsBtn" type="button" title="Selection options" aria-label="Selection options">${ICON_DOTS}</button></div>`
-    : `<div class="bulk-bar-sticky bulk-bar-normal"><span class="section-label">All Chats</span></div>`;
+  let html = '';
 
-  html += `<div class="chat-list-area">`;
+  if (selectionMode) {
+    html += `<div class="bulk-bar-sticky"><button class="bb-cancel" id="bulkCancelBtn" type="button">Cancel</button><span class="bb-count" id="bulkCount">0</span><button class="bb-delete" id="bulkDeleteBtn" type="button" title="Delete selected">${ICON_DELETE}<span class="bb-delete-text">Delete</span></button><button class="bb-dots" id="bulkDotsBtn" type="button" title="Selection options" aria-label="Selection options">${ICON_DOTS}</button></div>`;
+  }
+
+  html += `<div class="chat-list-area" role="listbox" aria-label="Chats" aria-multiselectable="${selectionMode}">`;
+
   if (sorted.length > 0) {
-    for (const group of groupByDate(sorted)) {
-      html += `<div class="chat-group"><div class="chat-group-label">${group.label}</div>`;
-      for (const s of group.items) {
-        const active = !selectionMode && s.id === activeId ? ' active' : '';
-        const checked = selectionMode && selectedIds.has(s.id);
-        html += selectionMode
-          ? `<div class="chat-item${checked ? ' selected' : ''}" data-id="${esc(s.id)}" role="option" aria-selected="${checked}"><span class="select-circle${checked ? ' checked' : ''}">${checked ? ICON_CHECK : ''}</span><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span></div>`
-          : `<div class="chat-item${active}" data-id="${esc(s.id)}"><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span><button class="chat-item-menu" type="button" title="Chat options" aria-label="Chat options">${ICON_DOTS}</button></div>`;
-      }
-      html += `</div>`;
+    html += `<div class="chat-group">`;
+    for (const s of sorted) {
+      const active = !selectionMode && s.id === activeId ? ' active' : '';
+      const checked = selectionMode && selectedIds.has(s.id);
+      html += selectionMode
+        ? `<div class="chat-item${checked ? ' selected' : ''}" data-id="${esc(s.id)}" role="option" aria-selected="${checked}"><span class="select-circle${checked ? ' checked' : ''}">${checked ? ICON_CHECK : ''}</span><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span></div>`
+        : `<div class="chat-item${active}" data-id="${esc(s.id)}" role="option" aria-selected="${active ? 'true' : 'false'}"><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span><button class="chat-item-menu" type="button" title="Chat options" aria-label="Chat options">${ICON_DOTS}</button></div>`;
     }
+    html += `</div>`;
   } else {
     html += `<div class="sidebar-empty-state"><span class="ses-icon">${ICON_CHAT}</span><span>No chats yet</span><span class="ses-hint">Start a new conversation</span></div>`;
   }
+
   html += `</div>`;
 
   content.innerHTML = html;
   wireListEvents();
   if (selectionMode) updateSelectionUI();
-}
-
-function groupByDate(sessions: ChatSession[]): Array<{ label: string; items: ChatSession[] }> {
-  const midnight = new Date();
-  midnight.setHours(0, 0, 0, 0);
-  const t = midnight.getTime();
-  const day = 86400000;
-  const buckets: Array<{ label: string; items: ChatSession[] }> = [
-    { label: 'Today', items: [] },
-    { label: 'Yesterday', items: [] },
-    { label: 'Previous 7 Days', items: [] },
-    { label: 'Previous 30 Days', items: [] },
-    { label: 'Older', items: [] }
-  ];
-  for (const s of sessions) {
-    if (s.updatedAt >= t) buckets[0].items.push(s);
-    else if (s.updatedAt >= t - day) buckets[1].items.push(s);
-    else if (s.updatedAt >= t - 7 * day) buckets[2].items.push(s);
-    else if (s.updatedAt >= t - 30 * day) buckets[3].items.push(s);
-    else buckets[4].items.push(s);
-  }
-  return buckets.filter(g => g.items.length > 0);
 }
 
 /* ───────────────────── LIST EVENTS ───────────────────── */
@@ -530,7 +542,6 @@ function wireListEvents(): void {
       closeMenu();
       setActiveWorkspaceFilter(null);
       loadSession(id);
-      /* ✅ MOBILE: Chat click → auto-close sidebar */
       if (isMobile()) closeSidebar();
     });
 
@@ -612,11 +623,11 @@ function positionMenu(): void {
 
   const host = sb.getBoundingClientRect();
   const r = anchor.getBoundingClientRect();
-  const mw = pop.offsetWidth || 160;
+  const mw = pop.offsetWidth || 158;
   const mh = pop.offsetHeight || 80;
   const pad = 8, gap = 4;
 
-  let left = Math.max(pad, Math.min(r.right - host.left - mw, host.width - mw - pad));
+  const left = Math.max(pad, Math.min(r.right - host.left - mw, host.width - mw - pad));
   let top = r.top - host.top - mh - gap;
   if (top < pad) top = r.bottom - host.top + gap;
   top = Math.max(pad, Math.min(top, host.height - mh - pad));
