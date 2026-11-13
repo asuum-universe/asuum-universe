@@ -1,20 +1,19 @@
 /* ==========================================================================
    chat-mobile.css — MOBILE CHAT + TOP LAYER + THREE-LINE MENU OVERRIDES
    Must load AFTER chat-main.css.
+   --------------------------------------------------------------------------
+   --top-layer-h    : 30px (header 2+28=30, menu 2+28=30 → flush)
+   --top-layer-hero : 56px (hero header 2+54=56 → flush)
+   --top-gap        : first message ka layer se gap
    ========================================================================== */
 
 @media(max-width:768px){
 
-  /* ✅ TOP LAYER — mobile heights */
-  .main-panel{--top-layer-h:36px;--top-layer-hero:60px}
+  .main-panel{--top-layer-h:30px;--top-layer-hero:56px;--top-gap:4px}
 
-  /* ==========================================================================
-     ✅ CONTENT PADDING — CONSTANT (header open/close se ZERO farak)
-     Dono states ka padding SAME → messages bilkul nahi hilenge.
-     !important → header-mobile.css / app.css ke override ko beat karta hai.
-     ========================================================================== */
+  /* ✅ CONSTANT padding — header open/close se messages ZERO shift */
   html .main-area .main-panel.chat-active .chat-screen,
-  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:40px!important}
+  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:calc(var(--top-layer-h) + var(--top-gap))!important}
 
   /* ── CHAT MESSAGES ── */
   .chat-messages{width:95%;padding:3px 0 5px}
@@ -26,9 +25,9 @@
   .timeline-system:hover .timeline-window{width:160px}
   .scroll-to-bottom-btn{bottom:56px;right:10px;width:26px;height:26px}
 
-  /* ── THREE-LINE MENU · tight top-right corner ── */
+  /* ── THREE-LINE MENU · top:2px so 2+28=30px flush with band ── */
   .mm-wrap{
-    top:4px!important;
+    top:2px!important;
     right:6px!important;
     z-index:300!important;
   }
@@ -75,14 +74,13 @@
 }
 
 @media(max-width:380px){
-  .main-panel{--top-layer-h:34px;--top-layer-hero:58px}
-  .mm-wrap{top:3px!important;right:5px!important}
+  .main-panel{--top-layer-h:30px;--top-layer-hero:56px;--top-gap:3px}
+  .mm-wrap{top:2px!important;right:5px!important}
   .mm-menu{min-width:160px!important;max-width:min(220px,82vw)!important}
   .scroll-to-bottom-btn{right:8px}
 
-  /* ✅ Small phones pe bhi CONSTANT padding */
   html .main-area .main-panel.chat-active .chat-screen,
-  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:38px!important}
+  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:calc(var(--top-layer-h) + var(--top-gap))!important}
 }
 
 @media(prefers-reduced-motion:reduce){

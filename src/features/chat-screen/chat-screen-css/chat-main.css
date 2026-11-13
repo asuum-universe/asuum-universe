@@ -1,13 +1,12 @@
 /* chat-main.css — CHAT+INPUT SYNCED TRANSITIONS + TOP LAYER + SIDEBAR-PALETTE MENU */
 
 /* ==========================================================================
-   ✅ TOP LAYER — welcome + chat dono screen ke upar patli layer
-   · Colour = var(--theme-bg) → screen jaisa hi (dark/light auto sync)
-   · Height = sirf header + menu button fit hone jitni
-   · z-index 150 → chat content iske PEECHE scroll hota hai
-   · pointer-events:none → click block nahi karti
+   ✅ TOP LAYER — patli band
+   --top-layer-h    : 30px (header 2+28=30, menu 4+26=30 → flush)
+   --top-layer-hero : 62px (hero header 2+60=62 → flush)
+   --top-gap        : first message ka layer se gap
    ========================================================================== */
-.main-panel{--top-layer-h:36px;--top-layer-hero:68px}
+.main-panel{--top-layer-h:30px;--top-layer-hero:62px;--top-gap:4px}
 .main-panel::before{
   content:'';
   position:absolute;
@@ -18,16 +17,11 @@
   pointer-events:none;
   transition:height .35s cubic-bezier(.22,1,.36,1),background-color var(--theme-transition);
 }
-/* Welcome hero (mota header) → layer bhi moti */
 .header-area.welcome-header:not(.welcome-collapsed)~.main-panel::before{height:var(--top-layer-hero)}
 
-/* ==========================================================================
-   ✅ CONTENT PADDING — CONSTANT (header open/close se ZERO farak)
-   Dono states (open + closed) ka padding SAME → messages kabhi shift nahi honge.
-   Higher specificity + !important → app.css ke 12px override ko beat karta hai.
-   ========================================================================== */
+/* ✅ CONSTANT padding — header open/close se messages ZERO shift */
 html .main-area .main-panel.chat-active .chat-screen,
-html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:44px!important}
+html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:calc(var(--top-layer-h) + var(--top-gap))!important}
 
 .chat-screen{display:none;width:100%;flex:1;min-height:0;flex-direction:column;overflow:hidden;position:relative;background:var(--theme-bg);transition:background-color var(--theme-transition)}
 .main-panel.chat-active .chat-screen{display:flex}
@@ -135,9 +129,9 @@ html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top
 .scroll-to-bottom-btn svg{width:12px;height:12px}
 
 /* ==========================================================================
-   THREE-LINE MENU (DESKTOP BASE)
+   THREE-LINE MENU (DESKTOP BASE) — top:4px so 4+26=30px flush with band
    ========================================================================== */
-.mm-wrap{position:absolute;top:6px;right:14px;z-index:200;box-shadow:none!important;filter:none!important}
+.mm-wrap{position:absolute;top:4px;right:14px;z-index:200;box-shadow:none!important;filter:none!important}
 .mm-btn{width:26px;height:26px;border-radius:50%;border:none;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none!important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent;transition:background .2s ease,transform .15s ease}
 .mm-btn:hover{background:var(--theme-surface-hover);transform:scale(1.05)}
 .mm-btn:active{transform:scale(.92)}
