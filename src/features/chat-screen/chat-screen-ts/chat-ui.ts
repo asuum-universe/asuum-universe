@@ -1,10 +1,13 @@
-/** chat-ui.ts — V1 + REGENERATE DELETE-BELOW + BUTTON-ANCHORED MENU (ZERO SHADOW) */
+/** chat-ui.ts — V1 + REGENERATE DELETE-BELOW + INPUT-ANCHORED SCROLL BUTTON */
 import { eventBus } from '../../../event-bus';
 import { routeChatRequest, ChatMessage } from '../../../core/ai-router';
-import { appendToCurrent, appendToSession, getCurrentSession, onSessionChange, updateMessageText, createSession, startNewChat, renameSession, deleteSession, removeLastAiMessage, deleteMessagesFromIndex, getMessagesUpTo, ChatSession } from '../services/chat-store';
+import { appendToCurrent, appendToSession, getCurrentSession, onSessionChange, updateMessageText, createSession, startNewChat, renameSession, deleteSession, deleteMessagesFromIndex, getMessagesUpTo, ChatSession } from '../services/chat-store';
 import { getActiveTab, assignSessionToTab, createTab, setTabTitleAuto, hasUserRenamed } from '../../header/services/header-tabs-store';
 import { LoadingManager } from '../../../core/loading';
 import { toggleMainTheme } from '../../welcome-screen/welcome-ts/welcome-ui';
+
+const MOBILE_BP = 768;
+function isMobileVP(): boolean { return window.matchMedia(`(max-width:${MOBILE_BP}px)`).matches; }
 
 let _openRulesModal:(()=>void)|null=null,_refreshRulesDot:(()=>void)|null=null;
 function getOpenRulesModal():()=>void{if(!_openRulesModal){_openRulesModal=():void=>{const o=document.getElementById('crOverlay');if(o){o.classList.add('open');o.classList.add('active')}};}return _openRulesModal;}
@@ -12,7 +15,8 @@ function getRefreshRulesDot():()=>void{if(!_refreshRulesDot){_refreshRulesDot=()
 
 const ICON_EDIT=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
 const ICON_COPY=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
-const ICON_CHECK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;const ICON_SAVE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
+const ICON_CHECK=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+const ICON_SAVE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>`;
 const ICON_LIKE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>`;
 const ICON_DISLIKE=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>`;
 const ICON_REGEN=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
@@ -36,6 +40,13 @@ let isDraggingHistory=false,historyDragStartY=0,historyDragStartScroll=0;
 let thinkingRow:HTMLElement|null=null;
 let lastUserBubbleEl:HTMLElement|null=null;
 let menuRepositionRaf:number|null=null;
+
+/* ✅ Input-anchored scroll-to-bottom button */
+let scrollBtnEl:HTMLElement|null=null;
+let scrollBtnRaf:number|null=null;
+let inputResizeObs:ResizeObserver|null=null;
+let inputAttrObs:MutationObserver|null=null;
+
 const HIST_STRIDE=24;
 
 function silentCopy(text:string):void{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px;top:-9999px;opacity:0;width:1px;height:1px;padding:0;border:none;outline:none;box-shadow:none;background:transparent';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy')}catch(_){}document.body.removeChild(ta)}
@@ -47,20 +58,12 @@ function startBubbleShimmer():void{
   const ml=document.getElementById('chatMessages');
   if(!ml)return;
   const rows=ml.querySelectorAll('.message-row.user');
-  if(rows.length>0){
-    lastUserBubbleEl=rows[rows.length-1]as HTMLElement;
-    lastUserBubbleEl.classList.add('bubble-shimmer');
-  }
+  if(rows.length>0){lastUserBubbleEl=rows[rows.length-1]as HTMLElement;lastUserBubbleEl.classList.add('bubble-shimmer');}
 }
-function stopBubbleShimmer():void{
-  if(lastUserBubbleEl){
-    lastUserBubbleEl.classList.remove('bubble-shimmer');
-    lastUserBubbleEl=null;
-  }
-}
+function stopBubbleShimmer():void{if(lastUserBubbleEl){lastUserBubbleEl.classList.remove('bubble-shimmer');lastUserBubbleEl=null;}}
 
 export function initializeChatUI():void{
-  console.log('💬 Chat UI (Secure Router + Regenerate Delete-Below + Anchored Menu)');
+  console.log('💬 Chat UI (Secure Router + Input-Anchored Scroll Button)');
   eventBus.on('NEW_MESSAGE',async(payload:any)=>{
     const text=payload?.text??'';if(!text)return;
     const panel=document.getElementById('mainPanel'),isOnWelcome=panel&&!panel.classList.contains('chat-active');
@@ -76,6 +79,7 @@ export function initializeChatUI():void{
     appendToCurrent(text,'user');
     appendThinkingRow();
     scrollToBottomSmart();
+    scheduleScrollBtn();
     await generateAiReply();
   });
   onSessionChange(()=>{cancelEdit();stopBubbleShimmer();const session=getCurrentSession(),newSessionId=session?.id??null;if(newSessionId!==currentRenderedSessionId){currentRenderedSessionId=newSessionId;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();renderCurrentSession()}});
@@ -86,6 +90,39 @@ export function initializeChatUI():void{
 }
 
 function scrollToBottomSmart():void{const l=document.getElementById('chatMessages');if(!l||userHasScrolledUp)return;requestAnimationFrame(()=>{l.scrollTo({top:l.scrollHeight,behavior:'smooth'})})}
+
+/* ==========================================================================
+   ✅ SCROLL-TO-BOTTOM BUTTON — input ke RIGHT edge, uske just ABOVE
+   Input resize / move / open-close / keyboard → button smoothly follow karta hai
+   ========================================================================== */
+function positionScrollBtn():void{
+  const btn=scrollBtnEl;if(!btn)return;
+  const ic=document.querySelector('.input-container')as HTMLElement|null;
+  if(!ic)return;
+  const r=ic.getBoundingClientRect();
+  if(r.width<=0||r.height<=0)return;
+  const size=btn.offsetWidth||32;
+  const gap=8;
+  const vv=window.visualViewport;
+  const vvTop=vv?vv.offsetTop:0;
+  const vvH=vv?vv.height:window.innerHeight;
+  const vvLeft=vv?vv.offsetLeft:0;
+  const vvW=vv?vv.width:window.innerWidth;
+
+  let x=r.right-size-2;
+  let y=r.top-size-gap;
+
+  if(x+size>vvLeft+vvW-6)x=vvLeft+vvW-size-6;
+  if(x<vvLeft+6)x=vvLeft+6;
+  if(y<vvTop+6)y=vvTop+6;
+  if(y+size>vvTop+vvH-6)y=vvTop+vvH-size-6;
+
+  btn.style.transform=`translate3d(${Math.round(x)}px,${Math.round(y)}px,0)`;
+}
+function scheduleScrollBtn():void{
+  if(scrollBtnRaf!==null)return;
+  scrollBtnRaf=requestAnimationFrame(()=>{scrollBtnRaf=null;positionScrollBtn();});
+}
 
 function initializeTimelineSystem():void{
   const cs=document.querySelector('.chat-screen');
@@ -130,17 +167,19 @@ function initializeTimelineSystem():void{
   rebuildAll();
   const ml=document.getElementById('chatMessages');
   if(ml){new MutationObserver(()=>rebuildAll()).observe(ml,{childList:true,subtree:true});ml.addEventListener('scroll',updateActiveStates.bind(null,false),{passive:true})}
+  window.addEventListener('resize',()=>{if(!isMobileVP())rebuildAll();});
 }
 
 function startHistAutoScroll(dir:number):void{stopHistAutoScroll();if(!historyListEl)return;historyListEl.scrollTop+=dir*30;historyScrollInterval=setInterval(()=>{if(historyListEl)historyListEl.scrollTop+=dir*30},80)}
 function stopHistAutoScroll():void{if(historyScrollInterval){clearInterval(historyScrollInterval);historyScrollInterval=null}}
-function onHistoryScroll():void{updateHistoryScrollbarThumb();if(histSyncRaf!==null)return;histSyncRaf=requestAnimationFrame(()=>{histSyncRaf=null;rebuildPillar();updateActiveStates(true)})}
+function onHistoryScroll():void{if(isMobileVP())return;updateHistoryScrollbarThumb();if(histSyncRaf!==null)return;histSyncRaf=requestAnimationFrame(()=>{histSyncRaf=null;rebuildPillar();updateActiveStates(true)})}
 function updateTimelineVisibility():void{const ml=document.getElementById('chatMessages');if(!ml||!systemEl)return;const uc=ml.querySelectorAll('.message-row.user').length;if(uc>=2)systemEl.classList.remove('tl-hidden');else systemEl.classList.add('tl-hidden')}
 function calcCapsuleHeight(count:number):number{const capped=Math.min(8,Math.max(2,count));return capped*24+14;}
 function applyCapsuleHeight(count:number):void{const h=calcCapsuleHeight(count);if(pillarEl)pillarEl.style.height=h+'px';if(windowEl)windowEl.style.height=h+'px';if(historyListEl)historyListEl.style.height=h+'px';if(historyScrollbarEl)historyScrollbarEl.style.height=h+'px';}
-function rebuildAll():void{updateTimelineVisibility();rebuildHistory();rebuildPillar();updateActiveStates(false)}
+function rebuildAll():void{if(isMobileVP())return;updateTimelineVisibility();rebuildHistory();rebuildPillar();updateActiveStates(false)}
 
 function rebuildPillar():void{
+  if(isMobileVP())return;
   if(!pillarEl||!historyListEl)return;
   pillarEl.querySelectorAll('.timeline-item').forEach(el=>el.remove());
   pillarItemEls=[];pillarMessageRefs=[];
@@ -165,6 +204,7 @@ function rebuildPillar():void{
 }
 
 function rebuildHistory():void{
+  if(isMobileVP())return;
   if(!historyListEl)return;
   const ml=document.getElementById('chatMessages');if(!ml)return;
   historyListEl.innerHTML='';historyItemEls=[];historyMessageRefs=[];
@@ -187,6 +227,7 @@ function rebuildHistory():void{
 }
 
 function updateActiveStates(noAutoScroll=false):void{
+  if(isMobileVP())return;
   const ml=document.getElementById('chatMessages');if(!ml)return;
   const st=ml.scrollTop,sh=ml.scrollHeight-ml.clientHeight;
   if(sh<=0)return;
@@ -217,28 +258,97 @@ function startHistoryDrag(e:MouseEvent):void{if(!historyScrollbarThumb||!history
 function onHistoryDrag(e:MouseEvent):void{if(!isDraggingHistory||!historyScrollbarThumb||!historyScrollbarTrack||!historyListEl)return;const dy=e.clientY-historyDragStartY,tkH=historyScrollbarTrack.clientHeight-historyScrollbarThumb.clientHeight,scH=historyListEl.scrollHeight-historyListEl.clientHeight;if(tkH<=0)return;historyListEl.scrollTop=historyDragStartScroll+(dy/tkH)*scH}
 function stopHistoryDrag():void{if(!isDraggingHistory)return;isDraggingHistory=false;historyScrollbarThumb?.classList.remove('dragging');document.body.style.userSelect=''}
 
-function smartAutoScroll():void{const l=document.getElementById('chatMessages');if(!l||userHasScrolledUp)return;requestAnimationFrame(()=>{const rows=l.querySelectorAll('.message-row,.chat-end-marker-wrapper');if(!rows.length)return;const last=rows[rows.length-1]as HTMLElement;l.scrollTo({top:last.offsetTop+last.offsetHeight-l.clientHeight+3,behavior:'smooth'})})}
+function smartAutoScroll():void{const l=document.getElementById('chatMessages');if(!l||userHasScrolledUp)return;requestAnimationFrame(()=>{const rows=l.querySelectorAll('.message-row,.chat-end-marker-wrapper');if(!rows.length)return;const last=rows[rows.length-1]as HTMLElement;l.scrollTo({top:last.offsetTop+last.offsetHeight-l.clientHeight+3,behavior:'smooth'});scheduleScrollBtn();})}
 
-function initializeCustomScrollbar():void{const cs=document.querySelector('.chat-screen'),ml=document.getElementById('chatMessages');if(!cs||!ml||scrollbarEl)return;const hz=document.createElement('div');hz.className='chat-scrollbar-hover-zone';hz.addEventListener('mouseenter',showScrollbar);cs.appendChild(hz);scrollbarEl=document.createElement('div');scrollbarEl.className='chat-scrollbar';const au=document.createElement('div');au.className='scroll-arrow-up';au.innerHTML=ICON_UP;let upIv:ReturnType<typeof setInterval>|null=null;au.addEventListener('mousedown',()=>{showScrollbar();ml.scrollTo({top:0,behavior:'smooth'});upIv=setInterval(()=>{ml.scrollTop-=12},16)});const stopUp=()=>{if(upIv){clearInterval(upIv);upIv=null}};au.addEventListener('mouseup',stopUp);au.addEventListener('mouseleave',stopUp);scrollbarTrack=document.createElement('div');scrollbarTrack.className='chat-scrollbar-track';scrollbarThumb=document.createElement('div');scrollbarThumb.className='chat-scrollbar-thumb';const ad=document.createElement('div');ad.className='scroll-arrow-down';ad.innerHTML=ICON_DOWN;let dnIv:ReturnType<typeof setInterval>|null=null;ad.addEventListener('mousedown',()=>{showScrollbar();ml.scrollTo({top:ml.scrollHeight,behavior:'smooth'});dnIv=setInterval(()=>{ml.scrollTop+=12},16)});const stopDn=()=>{if(dnIv){clearInterval(dnIv);dnIv=null}};ad.addEventListener('mouseup',stopDn);ad.addEventListener('mouseleave',stopDn);scrollbarTrack.appendChild(scrollbarThumb);scrollbarEl.appendChild(au);scrollbarEl.appendChild(scrollbarTrack);scrollbarEl.appendChild(ad);cs.appendChild(scrollbarEl);ml.addEventListener('scroll',handleScrollUpdate,{passive:true});scrollbarTrack.addEventListener('mousedown',startScrollbarDrag);document.addEventListener('mousemove',onScrollbarDrag,{passive:true});document.addEventListener('mouseup',stopScrollbarDrag);ml.addEventListener('mouseenter',showScrollbar);setTimeout(()=>{updateScrollbarThumbSize();syncThumbPosition()},60);new MutationObserver(()=>{updateScrollbarThumbSize();syncThumbPosition()}).observe(ml,{childList:true,subtree:true})}
-function showScrollbar():void{if(!scrollbarEl)return;scrollbarEl.classList.add('visible');if(scrollbarHideTimeout)clearTimeout(scrollbarHideTimeout);scrollbarHideTimeout=setTimeout(()=>{if(!isDraggingScrollbar&&scrollbarEl)scrollbarEl.classList.remove('visible')},700)}
-function handleScrollUpdate():void{showScrollbar();if(rafId===null){rafId=requestAnimationFrame(()=>{rafId=null;syncThumbPosition();updateActiveStates(false)})}}
+function initializeCustomScrollbar():void{
+  const cs=document.querySelector('.chat-screen'),ml=document.getElementById('chatMessages');
+  if(!cs||!ml||scrollbarEl)return;
+  const hz=document.createElement('div');hz.className='chat-scrollbar-hover-zone';hz.addEventListener('mouseenter',showScrollbar);cs.appendChild(hz);
+  scrollbarEl=document.createElement('div');scrollbarEl.className='chat-scrollbar';
+  const au=document.createElement('div');au.className='scroll-arrow-up';au.innerHTML=ICON_UP;
+  let upIv:ReturnType<typeof setInterval>|null=null;
+  au.addEventListener('mousedown',()=>{showScrollbar();ml.scrollTo({top:0,behavior:'smooth'});upIv=setInterval(()=>{ml.scrollTop-=12},16)});
+  const stopUp=()=>{if(upIv){clearInterval(upIv);upIv=null}};
+  au.addEventListener('mouseup',stopUp);au.addEventListener('mouseleave',stopUp);
+  scrollbarTrack=document.createElement('div');scrollbarTrack.className='chat-scrollbar-track';
+  scrollbarThumb=document.createElement('div');scrollbarThumb.className='chat-scrollbar-thumb';
+  const ad=document.createElement('div');ad.className='scroll-arrow-down';ad.innerHTML=ICON_DOWN;
+  let dnIv:ReturnType<typeof setInterval>|null=null;
+  ad.addEventListener('mousedown',()=>{showScrollbar();ml.scrollTo({top:ml.scrollHeight,behavior:'smooth'});dnIv=setInterval(()=>{ml.scrollTop+=12},16)});
+  const stopDn=()=>{if(dnIv){clearInterval(dnIv);dnIv=null}};
+  ad.addEventListener('mouseup',stopDn);ad.addEventListener('mouseleave',stopDn);
+  scrollbarTrack.appendChild(scrollbarThumb);
+  scrollbarEl.appendChild(au);scrollbarEl.appendChild(scrollbarTrack);scrollbarEl.appendChild(ad);
+  cs.appendChild(scrollbarEl);
+  ml.addEventListener('scroll',handleScrollUpdate,{passive:true});
+  scrollbarTrack.addEventListener('mousedown',startScrollbarDrag);
+  document.addEventListener('mousemove',onScrollbarDrag,{passive:true});
+  document.addEventListener('mouseup',stopScrollbarDrag);
+  ml.addEventListener('mouseenter',showScrollbar);
+  setTimeout(()=>{updateScrollbarThumbSize();syncThumbPosition()},60);
+  new MutationObserver(()=>{updateScrollbarThumbSize();syncThumbPosition()}).observe(ml,{childList:true,subtree:true});
+}
+function showScrollbar():void{if(isMobileVP()||!scrollbarEl)return;scrollbarEl.classList.add('visible');if(scrollbarHideTimeout)clearTimeout(scrollbarHideTimeout);scrollbarHideTimeout=setTimeout(()=>{if(!isDraggingScrollbar&&scrollbarEl)scrollbarEl.classList.remove('visible')},700)}
+function handleScrollUpdate():void{showScrollbar();if(rafId===null){rafId=requestAnimationFrame(()=>{rafId=null;if(!isMobileVP()){syncThumbPosition();updateActiveStates(false)}})}}
 function syncThumbPosition():void{const m=document.getElementById('chatMessages');if(!m||!scrollbarThumb||!scrollbarTrack)return;const st=m.scrollTop,sh=m.scrollHeight-m.clientHeight,th=scrollbarTrack.clientHeight-scrollbarThumb.clientHeight;if(sh<=0)return;scrollbarThumb.style.top=`${(st/sh)*th}px`}
 function updateScrollbarThumbSize():void{const m=document.getElementById('chatMessages');if(!m||!scrollbarThumb||!scrollbarTrack)return;if(m.scrollHeight<=m.clientHeight){scrollbarEl?.classList.remove('visible');if(scrollbarThumb){scrollbarThumb.style.height='0';scrollbarThumb.style.display='none'}return}if(scrollbarThumb)scrollbarThumb.style.display='block';scrollbarThumb.style.height=`${Math.max(16,scrollbarTrack.clientHeight*(m.clientHeight/m.scrollHeight))}px`}
 function startScrollbarDrag(e:MouseEvent):void{if(!scrollbarThumb||!scrollbarTrack)return;e.preventDefault();isDraggingScrollbar=true;dragStartY=e.clientY;const m=document.getElementById('chatMessages');if(m)dragStartScroll=m.scrollTop;scrollbarThumb.classList.add('dragging');showScrollbar();document.body.style.userSelect='none'}
 function onScrollbarDrag(e:MouseEvent):void{if(!isDraggingScrollbar||!scrollbarThumb||!scrollbarTrack)return;const m=document.getElementById('chatMessages');if(!m)return;const th=scrollbarTrack.clientHeight-scrollbarThumb.clientHeight,sh=m.scrollHeight-m.clientHeight;if(th<=0)return;m.scrollTop=dragStartScroll+((e.clientY-dragStartY)/th)*sh}
 function stopScrollbarDrag():void{if(!isDraggingScrollbar)return;isDraggingScrollbar=false;scrollbarThumb?.classList.remove('dragging');document.body.style.userSelect='';if(scrollbarHideTimeout)clearTimeout(scrollbarHideTimeout);scrollbarHideTimeout=setTimeout(()=>{if(scrollbarEl&&!isDraggingScrollbar)scrollbarEl.classList.remove('visible')},700)}
 
-function wireScrollDetection():void{const l=document.getElementById('chatMessages');if(!l)return;let d:ReturnType<typeof setTimeout>|null=null;l.addEventListener('scroll',()=>{if(d)clearTimeout(d);d=setTimeout(()=>{const{scrollTop,scrollHeight,clientHeight}=l;if(scrollHeight-scrollTop-clientHeight<30&&userHasScrolledUp){userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton()}else if(scrollHeight-scrollTop-clientHeight>=30&&!userHasScrolledUp){userHasScrolledUp=true;updateScrollToBottomButton()}},60)},{passive:true})}
-function wireScrollToBottomButton():void{const b=document.getElementById('scrollToBottomBtn');if(!b)return;b.addEventListener('click',()=>{userHasScrolledUp=false;newMessagesCount=0;smoothScrollToBottom();updateScrollToBottomButton()})}
-function updateScrollToBottomButton():void{const b=document.getElementById('scrollToBottomBtn');if(!b)return;b.classList.toggle('visible',userHasScrolledUp)}
+function wireScrollDetection():void{
+  const l=document.getElementById('chatMessages');if(!l)return;
+  let d:ReturnType<typeof setTimeout>|null=null;
+  l.addEventListener('scroll',()=>{
+    if(d)clearTimeout(d);
+    d=setTimeout(()=>{
+      const{scrollTop,scrollHeight,clientHeight}=l;
+      if(scrollHeight-scrollTop-clientHeight<30&&userHasScrolledUp){userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton()}
+      else if(scrollHeight-scrollTop-clientHeight>=30&&!userHasScrolledUp){userHasScrolledUp=true;updateScrollToBottomButton()}
+    },60);
+  },{passive:true});
+}
+
+function wireScrollToBottomButton():void{
+  const b=document.getElementById('scrollToBottomBtn');if(!b)return;
+  scrollBtnEl=b;
+  b.addEventListener('click',()=>{userHasScrolledUp=false;newMessagesCount=0;smoothScrollToBottom();updateScrollToBottomButton()});
+
+  positionScrollBtn();
+  setTimeout(positionScrollBtn,120);
+  setTimeout(positionScrollBtn,400);
+
+  const ic=document.querySelector('.input-container')as HTMLElement|null;
+  if(ic){
+    if(typeof ResizeObserver!=='undefined'){
+      inputResizeObs=new ResizeObserver(()=>scheduleScrollBtn());
+      inputResizeObs.observe(ic);
+    }
+    inputAttrObs=new MutationObserver(()=>scheduleScrollBtn());
+    inputAttrObs.observe(ic,{attributes:true,attributeFilter:['class','style']});
+  }
+
+  window.addEventListener('resize',scheduleScrollBtn);
+  window.addEventListener('orientationchange',()=>setTimeout(scheduleScrollBtn,160));
+  window.visualViewport?.addEventListener('resize',scheduleScrollBtn);
+  window.visualViewport?.addEventListener('scroll',scheduleScrollBtn);
+  document.addEventListener('asuum:chat-mode',()=>setTimeout(scheduleScrollBtn,60));
+  document.addEventListener('asuum:welcome-mode',()=>setTimeout(scheduleScrollBtn,60));
+}
+function updateScrollToBottomButton():void{
+  const b=scrollBtnEl??document.getElementById('scrollToBottomBtn');if(!b)return;
+  const panel=document.getElementById('mainPanel');
+  const inChat=!!panel&&panel.classList.contains('chat-active');
+  const show=inChat&&userHasScrolledUp;
+  if(show)positionScrollBtn();
+  b.classList.toggle('visible',show);
+}
 function smoothScrollToBottom():void{const l=document.getElementById('chatMessages');if(!l)return;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();requestAnimationFrame(()=>{const rows=l.querySelectorAll('.message-row,.chat-end-marker-wrapper');if(rows.length>0){const last=rows[rows.length-1]as HTMLElement;l.scrollTo({top:last.offsetTop+last.offsetHeight-l.clientHeight+3,behavior:'smooth'})}else l.scrollTo({top:l.scrollHeight,behavior:'smooth'})})}
 
 /* ─────────── THEME TOGGLE INSIDE THE THREE-LINE MENU ─────────── */
 function getThemeToggleHTML():string{
   const isDark=document.body.classList.contains('main-dark');
-  return isDark
-    ?`${ICON_SUN_MENU}<span>Light Mode</span>`
-    :`${ICON_MOON_MENU}<span>Dark Mode</span>`;
+  return isDark?`${ICON_SUN_MENU}<span>Light Mode</span>`:`${ICON_MOON_MENU}<span>Dark Mode</span>`;
 }
 function updateThemeToggleIcon(btn:HTMLElement):void{btn.innerHTML=getThemeToggleHTML();}
 function injectThemeToggleInMenu(menu:HTMLElement):void{
@@ -249,13 +359,6 @@ function injectThemeToggleInMenu(menu:HTMLElement):void{
   btn.addEventListener('click',(e)=>{e.stopPropagation();toggleMainTheme();updateThemeToggleIcon(btn);requestAnimationFrame(positionMainMenu);});
   menu.appendChild(divider);menu.appendChild(btn);
 }
-
-/**
- * ✅ Keeps the menu glued to its button.
- * CSS already anchors it 2px under the button, right edges flush.
- * This only flips it ABOVE the button when the viewport has no room below,
- * so it never floats away or gets clipped.
- */
 function positionMainMenu():void{
   const wrap=document.getElementById('mmWrap');
   const menu=document.getElementById('mmMenu');
@@ -263,8 +366,11 @@ function positionMainMenu():void{
   menu.classList.remove('flip-up');
   const r=wrap.getBoundingClientRect();
   const mh=menu.offsetHeight||240;
-  const spaceBelow=window.innerHeight-r.bottom-10;
-  const spaceAbove=r.top-10;
+  const vv=window.visualViewport;
+  const vh=vv?vv.height:window.innerHeight;
+  const vTop=vv?vv.offsetTop:0;
+  const spaceBelow=vTop+vh-r.bottom-10;
+  const spaceAbove=r.top-vTop-10;
   if(mh>spaceBelow&&spaceAbove>spaceBelow)menu.classList.add('flip-up');
 }
 function scheduleMenuReposition():void{
@@ -279,23 +385,14 @@ function wireMainMenu():void{
   if(!w||!b||!m)return;
 
   const close=():void=>{w.classList.remove('open');m.classList.remove('flip-up');b.setAttribute('aria-expanded','false');};
-  const open=():void=>{
-    refreshMenuState();
-    w.classList.add('open');
-    b.setAttribute('aria-expanded','true');
-    requestAnimationFrame(positionMainMenu);
-  };
+  const open=():void=>{refreshMenuState();w.classList.add('open');b.setAttribute('aria-expanded','true');requestAnimationFrame(positionMainMenu);};
 
   b.setAttribute('aria-haspopup','menu');
   b.setAttribute('aria-expanded','false');
   m.setAttribute('role','menu');
 
-  b.addEventListener('click',(e)=>{
-    e.stopPropagation();
-    if(w.classList.contains('open'))close();else open();
-  });
+  b.addEventListener('click',(e)=>{e.stopPropagation();if(w.classList.contains('open'))close();else open();});
 
-  /* press anywhere outside the button+menu closes it instantly */
   document.addEventListener('pointerdown',(e)=>{
     if(!w.classList.contains('open'))return;
     if(w.contains(e.target as Node))return;
@@ -317,6 +414,7 @@ function wireMainMenu():void{
 
   window.addEventListener('resize',scheduleMenuReposition);
   window.addEventListener('orientationchange',scheduleMenuReposition);
+  window.visualViewport?.addEventListener('resize',scheduleMenuReposition);
   document.getElementById('chatMessages')?.addEventListener('scroll',scheduleMenuReposition,{passive:true});
   document.addEventListener('asuum:chat-mode',scheduleMenuReposition);
   document.addEventListener('asuum:welcome-mode',scheduleMenuReposition);
@@ -325,8 +423,8 @@ function wireMainMenu():void{
 function refreshMenuState():void{const m=document.getElementById('mmMenu');if(!m)return;const p=document.getElementById('mainPanel'),ic=!!p&&p.classList.contains('chat-active');m.classList.toggle('welcome-mode',!ic);const s=getCurrentSession(),hc=ic&&!!s&&s.messages.length>0;m.querySelectorAll('.mm-item:not(.mm-theme-toggle)').forEach((it)=>{const a=(it as HTMLElement).dataset.action;it.classList.toggle('disabled',(a==='rename'||a==='export'||a==='delete')&&!hc)});getRefreshRulesDot()();const tb=m.querySelector('.mm-theme-toggle')as HTMLElement|null;if(tb)updateThemeToggleIcon(tb)}
 function handleMenuAction(action:string):void{const s=getCurrentSession();switch(action){case'new-chat':startNewChat();currentRenderedSessionId=null;userHasScrolledUp=false;newMessagesCount=0;updateScrollToBottomButton();const inp=document.querySelector('.chat-input')as HTMLTextAreaElement|null;if(inp){inp.value='';inp.dispatchEvent(new Event('input'));inp.focus()}break;case'rename':if(!s)return;const n=prompt('Rename:',s.title);if(n?.trim())renameSession(s.id,n.trim());break;case'export':if(!s||!s.messages.length)return;exportSession(s);break;case'rules':getOpenRulesModal()();break;case'model-hub':document.getElementById('modelHubBtn')?.click();break;case'delete':if(s&&confirm(`Delete "${s.title}"?`)){deleteSession(s.id);currentRenderedSessionId=null;document.dispatchEvent(new CustomEvent('asuum:welcome-mode'));}break}}
 function exportSession(s:ChatSession):void{const lines=['ASUUM EXPORT',`Title: ${s.title}`,`Date: ${new Date().toLocaleString()}`,'---',''];s.messages.forEach(m=>lines.push(`${m.sender==='user'?'You':'Asuum'}: ${m.text}`,''));const blob=new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`${(s.title||'chat').replace(/[^\w\d-_ ]/g,'').slice(0,40)}.txt`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
-function showChatScreen():void{const p=document.getElementById('mainPanel');if(p&&!p.classList.contains('chat-active')){p.classList.add('chat-active');const s=getCurrentSession();document.dispatchEvent(new CustomEvent('asuum:chat-mode',{detail:{title:s?.title||'New Chat'}}));setTimeout(()=>smartAutoScroll(),50)}}
-function renderCurrentSession():void{const l=document.getElementById('chatMessages'),p=document.getElementById('mainPanel');if(!l||!p)return;l.innerHTML='';thinkingRow=null;lastUserBubbleEl=null;const s=getCurrentSession();if(!s||!s.messages.length){p.classList.remove('chat-active');currentRenderedSessionId=null;document.dispatchEvent(new CustomEvent('asuum:welcome-mode'));return}p.classList.add('chat-active');currentRenderedSessionId=s.id;s.messages.forEach((m,i)=>{appendMessageNoScroll(m.text,m.sender,i,true);if(m.sender==='ai')addPermanentDivider()});ensureBottomSpacer();scrollToLastMessageProfessional();setTimeout(()=>{rebuildAll();smartAutoScroll()},40)}
+function showChatScreen():void{const p=document.getElementById('mainPanel');if(p&&!p.classList.contains('chat-active')){p.classList.add('chat-active');const s=getCurrentSession();document.dispatchEvent(new CustomEvent('asuum:chat-mode',{detail:{title:s?.title||'New Chat'}}));setTimeout(()=>{smartAutoScroll();scheduleScrollBtn()},50)}}
+function renderCurrentSession():void{const l=document.getElementById('chatMessages'),p=document.getElementById('mainPanel');if(!l||!p)return;l.innerHTML='';thinkingRow=null;lastUserBubbleEl=null;const s=getCurrentSession();if(!s||!s.messages.length){p.classList.remove('chat-active');currentRenderedSessionId=null;document.dispatchEvent(new CustomEvent('asuum:welcome-mode'));return}p.classList.add('chat-active');currentRenderedSessionId=s.id;s.messages.forEach((m,i)=>{appendMessageNoScroll(m.text,m.sender,i,true);if(m.sender==='ai')addPermanentDivider()});ensureBottomSpacer();scrollToLastMessageProfessional();setTimeout(()=>{rebuildAll();smartAutoScroll();scheduleScrollBtn()},40)}
 function enterEditMode(row:HTMLElement,bubble:HTMLElement,idx:number,text:string):void{const inp=document.querySelector('.chat-input')as HTMLTextAreaElement|null;if(!inp)return;if(pendingEdit)pendingEdit.row.classList.remove('editing');pendingEdit={row,bubble,idx};row.classList.add('editing');inp.value=text;inp.dispatchEvent(new Event('input'));inp.focus()}
 function confirmEdit():void{if(!pendingEdit)return;const inp=document.querySelector('.chat-input')as HTMLTextAreaElement|null,nt=(inp?.value??'').trim();if(nt){pendingEdit.bubble.textContent=nt;updateMessageText(pendingEdit.idx,nt)}cancelEdit()}
 function cancelEdit():void{if(!pendingEdit)return;pendingEdit.row.classList.remove('editing');pendingEdit=null;const inp=document.querySelector('.chat-input')as HTMLTextAreaElement|null;if(inp){inp.value='';inp.dispatchEvent(new Event('input'))}}
@@ -398,19 +496,12 @@ function wireActions(actions:HTMLElement,bubble:HTMLElement,_text:string,sender:
         if(chatContainer){
           const allRows=Array.from(chatContainer.querySelectorAll('.message-row, .chat-end-marker-wrapper'));
           const thisRowIdx=allRows.indexOf(row);
-          if(thisRowIdx>=0){
-            for(let i=allRows.length-1;i>=thisRowIdx;i--){
-              allRows[i].remove();
-            }
-          }
+          if(thisRowIdx>=0){for(let i=allRows.length-1;i>=thisRowIdx;i--){allRows[i].remove();}}
           ensureBottomSpacer();
         }
 
         const contextMessages=getMessagesUpTo(msgIdx-1);
-        const msgs:ChatMessage[]=contextMessages.map(m=>({
-          role:m.sender==='user'?'user'as const:'assistant'as const,
-          content:m.text
-        }));
+        const msgs:ChatMessage[]=contextMessages.map(m=>({role:m.sender==='user'?'user'as const:'assistant'as const,content:m.text}));
 
         appendThinkingRow();
         scrollToBottomSmart();
@@ -475,10 +566,8 @@ async function generateAiReply():Promise<void>{
   if(!thinkingRow)appendThinkingRow();
   try{
     const msgs:ChatMessage[]=targetSession?.messages.map(m=>({role:m.sender==='user'?'user'as const:'assistant'as const,content:m.text}))||[];
-
     const result=await LoadingManager.load('ai-response',async()=>await routeChatRequest(msgs),{strategy:'smart',priority:'high',showUI:false,timeout:60000,retryCount:1});
     removeThinkingRow();
-
     document.dispatchEvent(new CustomEvent('asuum:ai-thinking-stop'));
 
     const currentSession=getCurrentSession();
@@ -527,4 +616,4 @@ async function generateAiReply():Promise<void>{
 }
 
 export function appendAiMessage(text:string):void{showChatScreen();appendMessageNoScroll(text,'ai');addPermanentDivider();ensureBottomSpacer();smartAutoScroll()}
-function scrollToLastMessageProfessional():void{const c=document.getElementById('chatMessages');if(!c)return;requestAnimationFrame(()=>{const ch=c.children;if(ch.length===0)return;const last=ch[ch.length-1]as HTMLElement;c.scrollTo({top:Math.max(0,last.offsetTop+last.offsetHeight-c.clientHeight+3),behavior:'smooth'})})}
+function scrollToLastMessageProfessional():void{const c=document.getElementById('chatMessages');if(!c)return;requestAnimationFrame(()=>{const ch=c.children;if(ch.length===0)return;const last=ch[ch.length-1]as HTMLElement;c.scrollTo({top:Math.max(0,last.offsetTop+last.offsetHeight-c.clientHeight+3),behavior:'smooth'});scheduleScrollBtn();})}

@@ -2,14 +2,9 @@
    sidebar-main.css — BASE + DESKTOP LAYER
    Load order: sidebar-main.css → sidebar-mobile.css
    --------------------------------------------------------------------------
-   FIXED ICON RAIL — icon centre = 21px in BOTH states (never moves)
-     rail 42 · pad 5
-     toggle 32 centred in rail            → 21px
-     avatar 26 @ left 3 inside box x=5    → 21px
-     action icon centred (collapsed)      → 21px
-     action icon left 7 (expanded)        → 21px
-     new-chat icon left 2 inside box      → 21px  (box pad 4 + border 1)
-   Only TEXT slides. No group labels, no "All Chats" header.
+   STILL ICON RAIL — every icon centre stays at 21px in BOTH states.
+   No `left:50%` mode-switch, no padding change → zero jump on toggle.
+   Only TEXT slides. Collapsed rail gets a Chats shortcut + flyout.
    ========================================================================== */
 
 .sidebar-overlay,#sidebarOverlay,.sidebar-close-btn,#sidebarCloseBtn{display:none!important;pointer-events:none!important}
@@ -27,7 +22,7 @@
   --sb-radius:7px;
   --sb-icon:18px;
   --sb-icon-left:7px;
-  --sb-box-inset:5px;
+  --sb-box-inset:5px;          /* border 1 + padding 4 — CONSTANT in both states */
   --sb-text:.8125rem;
   --sb-chat-text:.78rem;
 
@@ -45,7 +40,7 @@
 .sidebar.hub-fullscreen~.main-panel{width:0!important;min-width:0!important;flex-grow:0!important;opacity:0!important;padding:0!important;pointer-events:none;overflow:hidden;transition:width .34s cubic-bezier(.16,1,.3,1),opacity .24s ease .07s,padding .34s cubic-bezier(.16,1,.3,1)}
 .main-panel{border-radius:10px;overflow:hidden;position:relative;z-index:1;transition:width .34s cubic-bezier(.16,1,.3,1),opacity .24s ease,padding .34s cubic-bezier(.16,1,.3,1),min-width .34s cubic-bezier(.16,1,.3,1),flex-grow .34s cubic-bezier(.16,1,.3,1)}
 
-/* ── TOP ── */
+/* ── TOP ─ */
 .sb-top{display:grid;grid-template-columns:0fr var(--sb-rail);align-items:center;height:var(--sb-top);min-height:var(--sb-top);padding:0;margin:0;flex-shrink:0;position:relative;z-index:4;transition:grid-template-columns .34s cubic-bezier(.16,1,.3,1),padding .34s cubic-bezier(.16,1,.3,1)}
 .sidebar.expanded .sb-top{grid-template-columns:1fr var(--sb-rail);padding:0 0 0 12px}
 .sb-brand{overflow:hidden;white-space:nowrap;opacity:0;line-height:1;transition:opacity .16s ease}
@@ -66,7 +61,7 @@
 /* ── MIDDLE ── */
 .sb-middle{flex:1;min-height:0;display:flex;flex-direction:column;gap:var(--sb-row-gap);padding:2px var(--sb-pad) 0;overflow:hidden;position:relative;z-index:2}
 
-/* ── NEW CHAT BOX ── */
+/* ── NEW CHAT BOX — padding CONSTANT so the icon never shifts ── */
 .new-chat-box{
   position:relative;
   width:100%;
@@ -90,22 +85,22 @@
   transform:scale(.97);
   box-shadow:0 1px 4px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
 }
-.sidebar:not(.expanded) .new-chat-box{padding:2px;border-radius:8px}
 
 .sb-action-btn{display:flex;align-items:center;width:100%;height:var(--sb-row);min-height:var(--sb-row);padding:0;gap:0;border:none;border-radius:var(--sb-radius);background:transparent;color:var(--sidebar-text,#fafafa);cursor:pointer;flex-shrink:0;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;transition:background .16s cubic-bezier(.4,0,.2,1),color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
-.sb-action-btn svg{position:absolute;left:var(--sb-icon-left);top:50%;transform:translateY(-50%);flex-shrink:0;width:var(--sb-icon);height:var(--sb-icon);display:block;color:var(--sidebar-text,#fafafa);filter:var(--sidebar-icon-filter,none);transition:color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 
-/* ✅ COLLAPSED (pillar) — icon perfectly CENTRED in rail / box (no right tilt) */
-.sidebar:not(.expanded) .sb-action-btn svg{left:50%;transform:translate(-50%,-50%)}
-/* ✅ EXPANDED — rail-aligned; new-chat box inset compensated so centre stays 21px */
-.sidebar.expanded .new-chat-box .sb-action-btn svg{left:calc(var(--sb-icon-left) - var(--sb-box-inset))}
-.sidebar.expanded .new-chat-box .sb-btn-text{margin-left:31px}
+/* ✅ ONE positioning mode, both states → icon centre locked at 21px */
+.sb-action-btn svg{position:absolute;left:var(--sb-icon-left);top:50%;transform:translateY(-50%);flex-shrink:0;width:var(--sb-icon);height:var(--sb-icon);display:block;color:var(--sidebar-text,#fafafa);filter:var(--sidebar-icon-filter,none);transition:color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
+/* Box inset compensation — applies in BOTH states (not only expanded) */
+.new-chat-box .sb-action-btn svg{left:calc(var(--sb-icon-left) - var(--sb-box-inset))}
+.new-chat-box .sb-btn-text{margin-left:31px}
 
 .sb-action-btn::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:54%;background:var(--sidebar-text,#fafafa);border-radius:0 2px 2px 0;transition:width .18s cubic-bezier(.4,0,.2,1)}
 .sb-action-btn:hover{background:var(--sidebar-hover,rgba(255,255,255,.06))}
 .sb-action-btn:hover::before{width:2.5px}
 .sb-action-btn:active{transform:scale(.985)}
 .sb-action-btn:focus-visible{outline:2px solid var(--sidebar-text,#fafafa);outline-offset:-2px}
+
+/* ✅ ONLY the text slides — opacity + max-width + translate */
 .sb-btn-text{font-size:var(--sb-text);font-weight:500;letter-spacing:.005em;line-height:1;white-space:nowrap;overflow:hidden;color:var(--sidebar-text,#fafafa);opacity:0;margin-left:36px;max-width:0;transform:translateX(-8px);transition:opacity .18s ease,max-width .32s cubic-bezier(.16,1,.3,1),transform .26s cubic-bezier(.16,1,.3,1),color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .sidebar.expanded .sb-btn-text{opacity:1;max-width:170px;transform:translateX(0);transition:opacity .26s ease .07s,max-width .36s cubic-bezier(.16,1,.3,1),transform .3s cubic-bezier(.16,1,.3,1) .04s,color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 
@@ -122,10 +117,68 @@
 .sb-divider.sb-divider-spaced{margin:2px auto 1px}
 .sidebar.expanded .sb-divider.sb-divider-spaced{margin:2px 0 1px}
 
+/* ==========================================================================
+   RAIL CHATS SHORTCUT — collapsed-only icon below Model Hub
+   Slides in/out smoothly; opens a flyout with the full flat chat list.
+   ========================================================================== */
+.sb-rail-chats-btn{
+  display:flex;align-items:center;width:100%;
+  height:var(--sb-row);min-height:var(--sb-row);
+  padding:0;border:none;border-radius:var(--sb-radius);
+  background:transparent;color:var(--sidebar-text,#fafafa);
+  cursor:pointer;flex-shrink:0;position:relative;overflow:visible;
+  -webkit-tap-highlight-color:transparent;
+  opacity:1;transform:translateX(0);
+  transition:background .16s ease,color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),
+             opacity .2s ease,transform .28s cubic-bezier(.16,1,.3,1),
+             height .3s cubic-bezier(.16,1,.3,1),min-height .3s cubic-bezier(.16,1,.3,1),margin .3s ease;
+}
+.sb-rail-chats-btn svg{position:absolute;left:var(--sb-icon-left);top:50%;transform:translateY(-50%);width:var(--sb-icon);height:var(--sb-icon);color:var(--sidebar-text,#fafafa);filter:var(--sidebar-icon-filter,none);transition:color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
+.sb-rail-chats-btn::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:54%;background:var(--sidebar-text,#fafafa);border-radius:0 2px 2px 0;transition:width .18s cubic-bezier(.4,0,.2,1)}
+.sb-rail-chats-btn:hover{background:var(--sidebar-hover,rgba(255,255,255,.06))}
+.sb-rail-chats-btn:hover::before{width:2.5px}
+.sb-rail-chats-btn:active{transform:scale(.97)}
+.sb-rail-chats-btn.active{background:var(--sidebar-active,rgba(255,255,255,.08))}
+.sb-rail-chats-btn:focus-visible{outline:2px solid var(--sidebar-text,#fafafa);outline-offset:-2px}
+.sb-rail-chats-count{position:absolute;top:3px;right:3px;min-width:13px;height:13px;padding:0 3px;border-radius:99px;background:var(--sidebar-text,#fafafa);color:var(--sidebar-bg,#0a0a0a);font-size:8px;font-weight:800;line-height:13px;text-align:center;font-variant-numeric:tabular-nums;box-sizing:border-box;pointer-events:none;transition:background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),opacity .18s ease}
+.sb-rail-chats-count.empty{opacity:0}
+
+/* Expanded → shortcut collapses away, full list takes over */
+.sidebar.expanded .sb-rail-chats-btn{
+  height:0;min-height:0;opacity:0;transform:translateX(-10px);
+  margin:0;padding:0;pointer-events:none;overflow:hidden;
+}
+
+/* ── FLYOUT ── */
+.rail-chats-pop{
+  --sb-chat:32px;--sb-chat-gap:2px;--sb-chat-text:.78rem;--sb-radius:7px;
+  position:fixed;z-index:250;width:264px;max-height:62vh;
+  background:var(--sidebar-bg,#0a0a0a);
+  border:1px solid var(--sidebar-border,rgba(255,255,255,.12));
+  border-radius:12px;
+  box-shadow:0 14px 40px rgba(0,0,0,.36),0 3px 10px rgba(0,0,0,.22);
+  display:flex;flex-direction:column;overflow:hidden;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transform:translateX(-10px) scale(.97);transform-origin:left top;
+  transition:opacity .2s ease,transform .26s cubic-bezier(.22,1,.36,1),visibility .2s ease,
+             background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),border-color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1));
+}
+.rail-chats-pop.open{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(0) scale(1)}
+.rail-chats-pop::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--sidebar-text,#fafafa),transparent);opacity:.14;pointer-events:none}
+.rail-chats-pop-list{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:6px;scrollbar-width:thin;scrollbar-color:var(--sidebar-border,#27272a) transparent;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.rail-chats-pop-list::-webkit-scrollbar{width:5px}
+.rail-chats-pop-list::-webkit-scrollbar-track{background:transparent;margin:6px 0}
+.rail-chats-pop-list::-webkit-scrollbar-thumb{background:var(--sidebar-border,#27272a);border-radius:99px}
+.rail-chats-pop-list::-webkit-scrollbar-thumb:hover{background:var(--sidebar-text-muted,#3f3f46)}
+.rail-chats-pop .chat-item{min-height:var(--sb-chat);margin:0}
+.rail-chats-pop .chat-item-menu{opacity:.55}
+.rail-chats-pop .chat-item:hover .chat-item-menu,.rail-chats-pop .chat-item.active .chat-item-menu,.rail-chats-pop .chat-item.menu-open .chat-item-menu{opacity:1}
+.rail-chats-pop .sidebar-empty-state{padding:30px 16px}
+
+/* ── FULL LIST (expanded) ── */
 .sidebar-content{width:100%;flex:1;min-height:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;overflow:hidden;transition:opacity .16s ease}
 .sidebar.expanded .sidebar-content{opacity:1;pointer-events:auto;transition:opacity .28s ease .12s}
 
-/* ── SELECTION BAR (only in selection mode) ── */
 .bulk-bar-sticky{flex-shrink:0;display:flex;align-items:center;gap:6px;padding:3px 5px 3px 9px;min-height:var(--sb-head);background:var(--sidebar-bg,#0a0a0a);z-index:5;position:relative;transition:background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .bulk-bar-sticky::after{content:'';position:absolute;bottom:0;left:3px;right:3px;height:1px;background:linear-gradient(90deg,transparent,var(--sidebar-border,rgba(255,255,255,.07)),transparent)}
 .bb-cancel{border:none;background:transparent;color:var(--sidebar-text-muted,#a1a1aa);font-family:inherit;font-size:.72rem;font-weight:600;cursor:pointer;padding:4px 8px;border-radius:6px;white-space:nowrap;transition:all .14s ease}
@@ -139,7 +192,6 @@
 .bb-dots:hover{background:var(--sidebar-hover,rgba(255,255,255,.06));color:var(--sidebar-text,#fafafa)}
 .bb-dots svg{width:13px;height:13px}
 
-/* ── CHAT LIST — flat, no labels ── */
 .chat-list-area{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:5px 0 6px;scrollbar-width:thin;scrollbar-color:var(--sidebar-border,#27272a) transparent;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .chat-list-area::-webkit-scrollbar{width:4px}
 .chat-list-area::-webkit-scrollbar-track{background:transparent;margin:3px 0}
@@ -174,7 +226,7 @@
 .sidebar-empty-state .ses-icon svg{width:19px;height:19px}
 .sidebar-empty-state .ses-hint{font-size:.65rem;font-weight:500;opacity:.7}
 
-/* ── BOTTOM / PROFILE ── */
+/* ── BOTTOM / PROFILE — avatar left:3px fixed → centre 21px, never moves ── */
 .sb-bottom{display:flex;flex-direction:column;padding:7px var(--sb-pad);margin-top:auto;border-top:1px solid transparent;flex-shrink:0;position:relative;z-index:4;transition:border-color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .sidebar.expanded .sb-bottom{border-top-color:var(--sidebar-border,#1a1a1a)}
 .sb-profile-box{display:flex;align-items:center;width:100%;height:40px;border-radius:9px;background:var(--sidebar-hover,rgba(255,255,255,.03));border:1px solid var(--sidebar-border,rgba(255,255,255,.05));position:relative;overflow:hidden;transition:background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),border-color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
@@ -203,6 +255,7 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0) scale(1)}
 
 /* ── ROW MENU ── */
 .chat-menu{position:absolute;z-index:260;min-width:158px;max-width:calc(100% - 16px);padding:4px;background:var(--sidebar-bg,#0a0a0a);border:1px solid var(--sidebar-border,rgba(255,255,255,.12));border-radius:9px;box-shadow:0 -6px 18px rgba(0,0,0,.3),0 2px 5px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:2px;animation:menuUp .16s cubic-bezier(.22,1,.36,1);transition:background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),border-color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
+.chat-menu.fixed{position:fixed;max-width:220px}
 @keyframes menuUp{from{opacity:0;transform:translateY(6px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .chat-menu-btn{display:flex;align-items:center;gap:8px;padding:7px 10px;border:none;background:transparent;border-radius:6px;font-family:inherit;font-size:.78rem;font-weight:500;line-height:1.25;color:var(--sidebar-text-muted,#a1a1aa);cursor:pointer;text-align:left;position:relative;overflow:hidden;transition:background .14s ease,color .14s ease,padding-left .14s ease}
 .chat-menu-btn::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:0;height:54%;background:var(--sidebar-text,#fafafa);border-radius:0 2px 2px 0;transition:width .14s ease}
@@ -226,7 +279,6 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0) scale(1)}
 .rename-cancel{background:var(--sidebar-hover,rgba(255,255,255,.06));color:var(--sidebar-text-muted,#a1a1aa)}
 .rename-cancel:hover{background:var(--sidebar-hover,rgba(255,255,255,.13));color:var(--sidebar-text,#fafafa);transform:scale(1.06)}
 
-/* ── BULK DROPDOWN ── */
 .bulk-dropdown{position:absolute;z-index:260;min-width:170px;max-width:calc(100% - 16px);padding:4px;background:var(--sidebar-bg,#0a0a0a);border:1px solid var(--sidebar-border,rgba(255,255,255,.12));border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.3);opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .14s ease,transform .14s ease,visibility .14s ease,background var(--theme-transition,.6s cubic-bezier(.4,0,.2,1)),border-color var(--theme-transition,.6s cubic-bezier(.4,0,.2,1))}
 .bulk-dropdown.visible{opacity:1;visibility:visible;transform:translateY(0)}
 .bulk-dropdown-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border:none;background:transparent;border-radius:6px;font-family:inherit;font-size:.78rem;font-weight:500;line-height:1.25;color:var(--sidebar-text-muted,#a1a1aa);cursor:pointer;width:100%;text-align:left;white-space:nowrap;transition:background .13s ease,color .13s ease}
@@ -234,7 +286,6 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0) scale(1)}
 .bulk-dropdown-item:hover{background:var(--sidebar-hover,rgba(255,255,255,.07));color:var(--sidebar-text,#fafafa)}
 .bulk-dropdown-item:hover svg{opacity:1}
 
-/* ── DELETE CONFIRM ── */
 .bulk-delete-overlay{position:fixed;inset:0;z-index:10000;background:transparent;display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity .2s ease,visibility .2s ease}
 .bulk-delete-overlay.visible{opacity:1;visibility:visible}
 .bulk-delete-modal{width:min(352px,88vw);background:var(--sidebar-bg,#0a0a0a);border:1px solid var(--sidebar-border,rgba(255,255,255,.12));border-radius:14px;padding:22px 20px 16px;text-align:center;transform:scale(.94) translateY(8px);box-shadow:0 14px 34px rgba(0,0,0,.34);font-family:'Inter',sans-serif;transition:transform .22s cubic-bezier(.22,1,.36,1)}
@@ -250,46 +301,27 @@ body.sidebar-light .sb-theme-icon-moon{opacity:1;transform:rotate(0) scale(1)}
 .bdm-confirm{background:#dc2626;color:#fff}
 .bdm-confirm:hover{background:#b91c1c;transform:translateY(-1px)}
 
-/* ==========================================================================
-   MOBILE SCRIM — full-viewport, BEHIND the drawer (z 150 < sidebar 200)
-   · Opacity driven live by swipe progress → smoothly darkens / fades
-   · Theme-aware: light main = soft neutral, dark main = deeper black
-   · Left-edge gradient adds depth right next to the drawer
-   · Pure opacity animation → compositor-only, stays 60fps during drag
-   ========================================================================== */
+/* ── MOBILE SCRIM ── */
 .sidebar-mobile-overlay{
   --sb-scrim:rgba(24,24,27,.30);
   --sb-scrim-edge:rgba(24,24,27,.14);
-  position:fixed;
-  inset:0;
-  left:0;
-  z-index:150;
-  display:none;
-  opacity:0;
-  pointer-events:none;
-  background:
-    linear-gradient(90deg,var(--sb-scrim-edge) 0%,rgba(0,0,0,0) 110px),
-    var(--sb-scrim)!important;
-  backdrop-filter:none!important;
-  -webkit-backdrop-filter:none!important;
-  box-shadow:none!important;
-  filter:none!important;
+  position:fixed;inset:0;left:0;z-index:150;
+  display:none;opacity:0;pointer-events:none;
+  background:linear-gradient(90deg,var(--sb-scrim-edge) 0%,rgba(0,0,0,0) 110px),var(--sb-scrim)!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  box-shadow:none!important;filter:none!important;
   transition:opacity .3s cubic-bezier(.16,1,.3,1);
   will-change:opacity;
 }
-body.main-dark .sidebar-mobile-overlay{
-  --sb-scrim:rgba(0,0,0,.58);
-  --sb-scrim-edge:rgba(0,0,0,.26);
-}
+body.main-dark .sidebar-mobile-overlay{--sb-scrim:rgba(0,0,0,.58);--sb-scrim-edge:rgba(0,0,0,.26)}
 .sidebar-mobile-overlay.visible{display:block;pointer-events:auto}
 .sidebar-mobile-overlay.dragging{transition:none!important}
 
-/* ── LARGE DESKTOP ── */
 @media(min-width:1440px){
   .sidebar{--sb-wide:236px;--sb-row:36px;--sb-chat:33px;--sb-chat-text:.8rem}
   .sidebar.hub-active.expanded{width:290px}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .sidebar,.sb-action-btn,.chat-item,.chat-menu,.bulk-delete-overlay,.bulk-delete-modal,.select-circle,.bulk-dropdown,.sb-btn-text,.sb-profile-info,.sb-avatar,.sidebar-mobile-overlay,.sb-toggle-btn,.new-chat-box{animation:none!important;transition-duration:.01ms!important}
+  .sidebar,.sb-action-btn,.sb-rail-chats-btn,.chat-item,.chat-menu,.bulk-delete-overlay,.bulk-delete-modal,.select-circle,.bulk-dropdown,.sb-btn-text,.sb-profile-info,.sb-avatar,.sidebar-mobile-overlay,.sb-toggle-btn,.new-chat-box,.rail-chats-pop{animation:none!important;transition-duration:.01ms!important}
 }

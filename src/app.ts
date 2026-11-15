@@ -5,13 +5,16 @@
  * ============================================
  * CSS LAYERING RULE:
  *   har feature ka base/desktop layer pehle, mobile override layer baad mein.
- *   Vite import order hi cascade order hai — isliye barrels ki zaroorat nahi.
+ *   Vite import order hi cascade order hai.
  * ============================================
  */
 
 // ===== CSS IMPORTS (order = cascade priority) =====
 import './app.css';
+
+/* Welcome — base/desktop, then mobile overrides */
 import './features/welcome-screen/welcome-css/welcome-main.css';
+import './features/welcome-screen/welcome-css/welcome-mobile.css';
 
 /* Input box — base/desktop, then mobile overrides */
 import './features/input-box/input-box-css/input-main.css';
@@ -79,11 +82,9 @@ let hubExitWired = false;
 async function initializeApp(): Promise<void> {
   console.log('📦 3-Phase Priority Loading Started...');
 
-  // ===== PHASE 0: PERFORMANCE MONITOR (First — before everything) =====
   console.log('  🚀 Phase 0: Performance Monitor');
   PerformanceMonitor.initialize();
 
-  // ===== PHASE 1: CRITICAL UI (Immediate — User sees app instantly) =====
   console.log('  ⚡ Phase 1: Critical UI (immediate)');
   runWelcomeInitServices();
   initializeWelcomeUI();
@@ -97,13 +98,11 @@ async function initializeApp(): Promise<void> {
   initializeChatUI();
   initializeChatCollaboration();
 
-  // Mark app ready immediately (critical UI is done)
   requestAnimationFrame(() => {
     document.body.classList.add('app-ready');
     console.log('✅ App Ready! (Critical UI loaded in <100ms)');
   });
 
-  // ===== PHASE 2: DEFERRED UI (After 150ms — browser is free) =====
   setTimeout(async () => {
     console.log('  ⏳ Phase 2: Deferred UI');
     await loadSidebar();
@@ -111,7 +110,6 @@ async function initializeApp(): Promise<void> {
     setupHubFullscreenExit();
   }, 150);
 
-  // ===== PHASE 3: HEAVY FEATURES (On browser idle) =====
   loadHeavyFeaturesOnIdle();
 }
 
@@ -122,7 +120,6 @@ async function initializeApp(): Promise<void> {
  */
 async function loadSidebar(): Promise<void> {
   if (sidebarLoaded) return;
-
   try {
     console.log('    → Loading Sidebar...');
     const { initializeSidebarUI } = await import('./features/sidebar/sidebar-ts/sidebar-ui');
@@ -140,7 +137,6 @@ async function loadSidebar(): Promise<void> {
  */
 async function loadHeader(): Promise<void> {
   if (headerLoaded) return;
-
   try {
     console.log('    → Loading Header...');
     const [
@@ -152,7 +148,6 @@ async function loadHeader(): Promise<void> {
       import('./features/header/services/header-init.service'),
       import('./features/header/collaboration'),
     ]);
-
     runHeaderInitServices();
     initializeHeaderUI();
     initializeHeaderCollaboration();
@@ -165,7 +160,6 @@ async function loadHeader(): Promise<void> {
 /**
  * ============================================
  * PHASE 3: LOAD HEAVY FEATURES ON IDLE
- * Uses requestIdleCallback if available
  * ============================================
  */
 function loadHeavyFeaturesOnIdle(): void {
@@ -191,7 +185,6 @@ function loadHeavyFeaturesOnIdle(): void {
  */
 async function loadModelHub(): Promise<void> {
   if (modelHubLoaded) return;
-
   try {
     console.log('    → Loading Model Hub...');
     const [
@@ -201,7 +194,6 @@ async function loadModelHub(): Promise<void> {
       import('./features/model-hub/model-hub-ts/model-hub-ui'),
       import('./features/model-hub/collaboration'),
     ]);
-
     initializeModelHubUI();
     initializeModelHubCollaboration();
     modelHubLoaded = true;
@@ -217,7 +209,6 @@ async function loadModelHub(): Promise<void> {
  */
 async function loadChatRules(): Promise<void> {
   if (chatRulesLoaded) return;
-
   try {
     console.log('    → Loading Chat Rules...');
     const [
@@ -229,7 +220,6 @@ async function loadChatRules(): Promise<void> {
       import('./features/chat-rules/services/chat-rules-init.service'),
       import('./features/chat-rules/collaboration'),
     ]);
-
     runChatRulesInitServices();
     initializeChatRulesUI();
     initializeChatRulesCollaboration();
@@ -246,7 +236,6 @@ async function loadChatRules(): Promise<void> {
  */
 async function loadCommandPalette(): Promise<void> {
   if (paletteLoaded) return;
-
   try {
     console.log('    → Loading Command Palette...');
     const [
@@ -256,7 +245,6 @@ async function loadCommandPalette(): Promise<void> {
       import('./features/command-palette/command-palette-ts/palette-ui'),
       import('./features/command-palette/collaboration'),
     ]);
-
     initializeCommandPaletteUI();
     initializeCommandPaletteCollaboration();
     paletteLoaded = true;
@@ -269,14 +257,8 @@ async function loadCommandPalette(): Promise<void> {
  * ============================================
  * HUB FULLSCREEN EXIT (only)
  * ============================================
- * ⚠️ IMPORTANT: expand/collapse ka owner sidebar-ui.ts hai.
- * Pehle yahan ek doosra `classList.toggle('expanded')` tha jo
- * controller ke toggle se takra raha tha (double toggle / desync).
- * Ab ye listener SIRF hub-fullscreen mode exit karta hai.
- *
- * Capture phase par hai, aur sidebar-ui `stopPropagation()` use
- * karta hai (not `stopImmediatePropagation`), isliye same-node
- * capture listeners dono chalte hain — ye reliably fire hota hai.
+ * ⚠️ expand/collapse ka owner sidebar-ui.ts hai.
+ * Ye listener SIRF hub-fullscreen mode exit karta hai.
  * ============================================
  */
 function setupHubFullscreenExit(): void {

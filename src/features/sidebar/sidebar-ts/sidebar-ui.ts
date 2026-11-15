@@ -1,15 +1,16 @@
 /**
  * sidebar-ui.ts — SINGLE CONTROLLER (desktop + mobile)
  *
- * Owns: DOM, state, rendering, menus, theme, open/close policy, scrim.
+ * Owns: DOM, state, rendering, menus, theme, open/close policy, scrim,
+ *       and the collapsed-rail Chats shortcut + flyout.
  * Delegates: touch drag → sidebar-gestures.ts (destroyable).
  *
- * POLICY
- *   DESKTOP → persistent panel (228px). Outside clicks never collapse it.
- *   MOBILE  → drawer. Outside tap / scrim / Escape closes it.
- *             Chat click → auto-close. Swipe open/close with live scrim.
- *
- * LIST: flat, newest-first. No "All Chats" header, no date group labels.
+ * DESKTOP
+ *   Icons are position-locked (CSS) — only text slides on toggle.
+ *   Collapsed rail shows a Chats shortcut → flyout with the full flat list.
+ * MOBILE
+ *   Drawer. Outside tap / scrim / Escape closes. Chat click auto-closes.
+ *   Swipe open/close with live scrim. Rail shortcut hidden.
  *
  * Re-init safe: listeners bound to an AbortController aborted before re-init.
  */
@@ -34,10 +35,25 @@ let scrimHideTimer: ReturnType<typeof setTimeout> | null = null;
 let controller: AbortController | null = null;
 let destroyGestures: (() => void) | null = null;
 
+/* Rail Chats shortcut */
+let railBtnEl: HTMLButtonElement | null = null;
+let railPopEl: HTMLElement | null = null;
+let railPopListEl: HTMLElement | null = null;
+let railCountEl: HTMLElement | null = null;
+let railPopOpen = false;
+let railPinned = false;
+let railOpenTimer: ReturnType<typeof setTimeout> | null = null;
+let railCloseTimer: ReturnType<typeof setTimeout> | null = null;
+let railMenuEl: HTMLElement | null = null;
+let railMenuAnchor: HTMLElement | null = null;
+let railRepositionRaf: number | null = null;
+
 const THEME_KEY = 'asuum_sidebar_theme';
 const MOBILE_BP = 768;
 const NARROW_BP = 380;
 const SCRIM_FADE_MS = 320;
+const RAIL_HOVER_OPEN_MS = 140;
+const RAIL_HOVER_CLOSE_MS = 260;
 
 /* ───────────────────────── ICONS ───────────────────────── */
 const ICON_DOTS = `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>`;
@@ -60,6 +76,7 @@ function isOpen(): boolean {
   const sb = sidebarEl;
   return !!sb && sb.classList.contains('expanded');
 }
+function isRailMode(): boolean { return !isMobile() && !isOpen(); }
 function fallbackWidth(): number {
   if (window.innerWidth <= NARROW_BP) return 264;
   if (isMobile()) return 276;
@@ -73,6 +90,12 @@ function drawerWidth(): number {
 }
 function clearLongPress(): void {
   if (longPressTimer !== null) { clearTimeout(longPressTimer); longPressTimer = null; }
+}
+function sortedSessions() {
+  return [...getAllSessions()].sort((a, b) => b.updatedAt - a.updatedAt);
+}
+function sessionTitle(id: string): string {
+  return getAllSessions().find(s => s.id === id)?.title ?? '';
 }
 
 /* ───────────────────────── THEME ───────────────────────── */
@@ -88,9 +111,7 @@ function toggleTheme(): void {
   try { localStorage.setItem(THEME_KEY, next); } catch { /* blocked */ }
 }
 
-/* ───────────────────────── SCRIM ─────────────────────────
-   Full-viewport, sits BEHIND the drawer. Opacity = swipe progress.
-   ---------------------------------------------------------------- */
+/* ───────────────────────── SCRIM ───────────────────────── */
 function ensureScrim(): HTMLElement {
   if (scrimEl) return scrimEl;
   const el = document.createElement('div');
@@ -142,7 +163,6 @@ function hideScrim(): void {
     if (!el.classList.contains('visible')) el.style.display = 'none';
   }, SCRIM_FADE_MS);
 }
-/** Live scrim opacity while the user drags the drawer (0 → 1). */
 function setScrimProgress(progress: number): void {
   if (!isMobile()) return;
   const el = ensureScrim();
@@ -168,6 +188,7 @@ function syncToggleAria(): void {
 function openSidebar(): void {
   const sb = sidebarEl;
   if (!sb) return;
+  closeRailPop(true);
   sb.style.transition = '';
   sb.style.transform = '';
   sb.classList.remove('dragging');
@@ -180,12 +201,14 @@ function closeSidebar(): void {
   if (!sb) return;
   closeMenu();
   closeBulkMenu();
+  closeRailItemMenu();
   if (selectionMode) { selectionMode = false; selectedIds.clear(); renderAll(); }
   sb.style.transition = '';
   sb.style.transform = '';
   sb.classList.remove('dragging', 'expanded');
   syncToggleAria();
   hideScrim();
+  if (isRailMode()) renderRailChats();
 }
 function toggleSidebar(): void {
   const now = Date.now();
@@ -205,7 +228,7 @@ export function initializeSidebarUI(): void {
   const signal = controller.signal;
 
   sidebarEl = sb;
-  console.log('📋 Sidebar UI (flat list · slim desktop · live swipe scrim)');
+  console.log('📋 Sidebar UI (still icons · rail chats flyout · live scrim)');
 
   applyTheme(storedTheme() || 'dark');
 
@@ -215,6 +238,7 @@ export function initializeSidebarUI(): void {
   document.querySelector('.sidebar-close-btn')?.remove();
 
   ensureScrim();
+  ensureRailChats(signal);
   syncToggleAria();
 
   destroyGestures = initSidebarGestures({
@@ -254,6 +278,13 @@ export function initializeSidebarUI(): void {
     const bulk = bulkMenuEl;
     if (row && !row.contains(t) && !t.closest('.chat-item-menu')) closeMenu();
     if (bulk && !bulk.contains(t) && !t.closest('.bb-dots')) closeBulkMenu();
+    if (railMenuEl && !railMenuEl.contains(t) && !t.closest('.chat-item-menu')) closeRailItemMenu();
+    if (railPopOpen && !railPinned) {
+      const inBtn = railBtnEl?.contains(t);
+      const inPop = railPopEl?.contains(t);
+      const inMenu = railMenuEl?.contains(t);
+      if (!inBtn && !inPop && !inMenu) closeRailPop();
+    }
   };
   document.addEventListener('pointerdown', dismissPopups, { capture: true, signal });
   document.addEventListener('touchstart', dismissPopups, { capture: true, passive: true, signal });
@@ -272,10 +303,18 @@ export function initializeSidebarUI(): void {
   }, { signal });
 
   renderAll();
-  onHistoryChange(() => { if (!selectionMode) renderAll(); });
-  onTabsChange(() => { if (!selectionMode) renderAll(); });
+  renderRailChats();
+  onHistoryChange(() => { if (!selectionMode) renderAll(); renderRailChats(); });
+  onTabsChange(() => { if (!selectionMode) renderAll(); renderRailChats(); });
 
   document.addEventListener('click', (e: Event) => {
+    if (railPopOpen && railPinned) {
+      const t = e.target as HTMLElement | null;
+      const inBtn = t && railBtnEl?.contains(t);
+      const inPop = t && railPopEl?.contains(t);
+      const inMenu = t && railMenuEl?.contains(t);
+      if (!inBtn && !inPop && !inMenu) closeRailPop(true);
+    }
     if (!isMobile()) return;
     if (Date.now() < suppressUntil) return;
     const target = e.target as HTMLElement | null;
@@ -292,6 +331,8 @@ export function initializeSidebarUI(): void {
 
   document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key !== 'Escape') return;
+    if (railMenuEl) { closeRailItemMenu(); return; }
+    if (railPopOpen) { closeRailPop(true); return; }
     if (menuEl) { closeMenu(); return; }
     if (bulkMenuEl) { closeBulkMenu(); return; }
     if (selectionMode) { exitSelectionMode(); return; }
@@ -304,12 +345,16 @@ export function initializeSidebarUI(): void {
     syncScrim();
     if (!isMobile()) hideScrim();
     else if (isOpen()) showScrim();
+    if (isRailMode()) { renderRailChats(); if (railPopOpen) scheduleRailReposition(); }
+    else closeRailPop(true);
     scheduleReposition();
+    scheduleRailReposition();
   }, { signal });
 
   window.addEventListener('orientationchange', () => {
     syncScrim();
     scheduleReposition();
+    scheduleRailReposition();
   }, { signal });
 }
 
@@ -320,8 +365,17 @@ export function destroySidebarUI(): void {
   destroyGestures = null;
   closeMenu();
   closeBulkMenu();
+  closeRailItemMenu();
+  closeRailPop(true);
   clearLongPress();
   cancelScrimHide();
+  clearRailTimers();
+  railBtnEl?.remove();
+  railBtnEl = null;
+  railPopEl?.remove();
+  railPopEl = null;
+  railPopListEl = null;
+  railCountEl = null;
   scrimEl?.remove();
   scrimEl = null;
   sidebarEl = null;
@@ -330,6 +384,7 @@ export function destroySidebarUI(): void {
 /* ───────────────────────── NEW CHAT ───────────────────────── */
 function handleNewChat(): void {
   if (selectionMode) exitSelectionMode();
+  closeRailPop(true);
   if (isMobile()) closeSidebar();
   else { closeMenu(); closeBulkMenu(); }
   startNewChat();
@@ -343,7 +398,7 @@ function handleNewChat(): void {
 }
 
 /* ───────────────────── SELECTION MODE ───────────────────── */
-function enterSelectionMode(): void { selectionMode = true; selectedIds.clear(); closeMenu(); renderAll(); }
+function enterSelectionMode(): void { selectionMode = true; selectedIds.clear(); closeMenu(); closeRailPop(true); renderAll(); }
 function exitSelectionMode(): void { selectionMode = false; selectedIds.clear(); closeBulkMenu(); renderAll(); }
 
 function toggleSelect(id: string): void {
@@ -460,29 +515,274 @@ function executeBulkDelete(): void {
   });
   exitSelectionMode();
   renderAll();
+  renderRailChats();
   if (!getCurrentSession()) document.dispatchEvent(new Event('asuum:welcome-mode'));
 }
 
-/* ───────────────────────── RENDER ─────────────────────────
-   Flat newest-first list. No "All Chats" header, no date labels.
-   Selection mode still gets its Cancel / count / Delete / dots bar.
-   ---------------------------------------------------------------- */
+/* ───────────────────────── RAIL CHATS SHORTCUT ───────────────────────── */
+function clearRailTimers(): void {
+  if (railOpenTimer !== null) { clearTimeout(railOpenTimer); railOpenTimer = null; }
+  if (railCloseTimer !== null) { clearTimeout(railCloseTimer); railCloseTimer = null; }
+}
+function ensureRailChats(signal: AbortSignal): void {
+  const sb = sidebarEl;
+  if (!sb) return;
+  const middle = sb.querySelector('.sb-middle');
+  const content = sb.querySelector('.sidebar-content');
+  if (!middle || !content) return;
+
+  if (!railBtnEl || !sb.contains(railBtnEl)) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sb-rail-chats-btn';
+    btn.title = 'Chats';
+    btn.setAttribute('aria-label', 'Open chats list');
+    btn.setAttribute('aria-haspopup', 'dialog');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = `${ICON_CHAT}<span class="sb-rail-chats-count empty">0</span>`;
+    middle.insertBefore(btn, content);
+    railBtnEl = btn;
+    railCountEl = btn.querySelector('.sb-rail-chats-count');
+  }
+
+  if (!railPopEl || !document.body.contains(railPopEl)) {
+    const pop = document.createElement('div');
+    pop.className = 'rail-chats-pop';
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', 'Chats');
+    pop.innerHTML = `<div class="rail-chats-pop-list" role="listbox" aria-label="All chats"></div>`;
+    document.body.appendChild(pop);
+    railPopEl = pop;
+    railPopListEl = pop.querySelector('.rail-chats-pop-list');
+  }
+
+  const btn = railBtnEl;
+  const pop = railPopEl;
+  if (!btn || !pop) return;
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!isRailMode()) return;
+    if (railPopOpen && railPinned) closeRailPop(true);
+    else { railPinned = true; openRailPop(); }
+  }, { signal });
+
+  btn.addEventListener('mouseenter', () => {
+    if (!isRailMode()) return;
+    if (railCloseTimer !== null) { clearTimeout(railCloseTimer); railCloseTimer = null; }
+    if (railPopOpen) return;
+    railOpenTimer = setTimeout(() => { railOpenTimer = null; openRailPop(); }, RAIL_HOVER_OPEN_MS);
+  }, { signal });
+
+  btn.addEventListener('mouseleave', () => {
+    if (railOpenTimer !== null) { clearTimeout(railOpenTimer); railOpenTimer = null; }
+    if (!railPopOpen || railPinned) return;
+    railCloseTimer = setTimeout(() => { railCloseTimer = null; closeRailPop(); }, RAIL_HOVER_CLOSE_MS);
+  }, { signal });
+
+  pop.addEventListener('mouseenter', () => {
+    if (railCloseTimer !== null) { clearTimeout(railCloseTimer); railCloseTimer = null; }
+  }, { signal });
+
+  pop.addEventListener('mouseleave', () => {
+    if (!railPopOpen || railPinned || railMenuEl) return;
+    railCloseTimer = setTimeout(() => { railCloseTimer = null; closeRailPop(); }, RAIL_HOVER_CLOSE_MS);
+  }, { signal });
+
+  pop.addEventListener('click', (e) => e.stopPropagation(), { signal });
+  pop.addEventListener('scroll', scheduleRailReposition, { capture: true, passive: true, signal });
+}
+
+function renderRailChats(): void {
+  const list = railPopListEl;
+  const count = railCountEl;
+  if (!list || !count) return;
+
+  const sessions = sortedSessions();
+  const activeId = getCurrentSession()?.id ?? null;
+  const n = sessions.length;
+
+  count.textContent = n > 99 ? '99+' : String(n);
+  count.classList.toggle('empty', n === 0);
+
+  if (n === 0) {
+    list.innerHTML = `<div class="sidebar-empty-state"><span class="ses-icon">${ICON_CHAT}</span><span>No chats yet</span><span class="ses-hint">Start a new conversation</span></div>`;
+    return;
+  }
+
+  let html = '';
+  for (const s of sessions) {
+    const active = s.id === activeId ? ' active' : '';
+    html += `<div class="chat-item${active}" data-id="${esc(s.id)}" role="option" aria-selected="${active ? 'true' : 'false'}"><span class="chat-item-icon">${ICON_CHAT}</span><span class="chat-item-title">${esc(s.title)}</span><button class="chat-item-menu" type="button" title="Chat options" aria-label="Chat options">${ICON_DOTS}</button></div>`;
+  }
+  list.innerHTML = html;
+
+  list.querySelectorAll('.chat-item').forEach(node => {
+    const el = node as HTMLElement;
+    const id = el.dataset.id;
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest('.chat-item-menu')) return;
+      if (!id) return;
+      setActiveWorkspaceFilter(null);
+      loadSession(id);
+      closeRailPop(true);
+    });
+  });
+
+  list.querySelectorAll('.chat-item-menu').forEach(node => {
+    node.addEventListener('click', (e) => {
+      e.stopImmediatePropagation(); e.preventDefault();
+      const anchor = node as HTMLElement;
+      const row = anchor.closest('.chat-item') as HTMLElement | null;
+      const id = row?.dataset.id;
+      if (!id) return;
+      if (railMenuEl && railMenuAnchor === anchor) { closeRailItemMenu(); return; }
+      openRailItemMenu(anchor, id, sessionTitle(id));
+    });
+  });
+
+  if (railPopOpen) positionRailPop();
+}
+
+function positionRailPop(): void {
+  const btn = railBtnEl, pop = railPopEl;
+  if (!btn || !pop) return;
+  const r = btn.getBoundingClientRect();
+  const w = pop.offsetWidth || 264;
+  const h = pop.offsetHeight || 320;
+  const gap = 10;
+  let left = r.right + gap;
+  if (left + w > window.innerWidth - 12) left = Math.max(12, r.left - w - gap);
+  let top = r.top - 6;
+  if (top + h > window.innerHeight - 12) top = window.innerHeight - h - 12;
+  if (top < 12) top = 12;
+  pop.style.left = `${left}px`;
+  pop.style.top = `${top}px`;
+}
+function scheduleRailReposition(): void {
+  if (!railPopOpen || railRepositionRaf !== null) return;
+  railRepositionRaf = requestAnimationFrame(() => { railRepositionRaf = null; positionRailPop(); });
+}
+
+function openRailPop(): void {
+  if (!isRailMode()) return;
+  const btn = railBtnEl, pop = railPopEl;
+  if (!btn || !pop) return;
+  clearRailTimers();
+  closeMenu();
+  closeBulkMenu();
+  closeRailItemMenu();
+  renderRailChats();
+  railPopOpen = true;
+  btn.classList.add('active');
+  btn.setAttribute('aria-expanded', 'true');
+  positionRailPop();
+  requestAnimationFrame(() => {
+    pop.classList.add('open');
+    positionRailPop();
+  });
+}
+function closeRailPop(force = false): void {
+  clearRailTimers();
+  if (force) railPinned = false;
+  closeRailItemMenu();
+  const btn = railBtnEl, pop = railPopEl;
+  railPopOpen = false;
+  if (btn) { btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false'); }
+  if (pop) pop.classList.remove('open');
+}
+
+/* Fixed-position row menu for flyout items (sidebar-relative math would clip). */
+function openRailItemMenu(anchor: HTMLElement, id: string, title: string): void {
+  closeRailItemMenu();
+  railMenuAnchor = anchor;
+  anchor.closest('.chat-item')?.classList.add('menu-open');
+
+  const pop = document.createElement('div');
+  pop.className = 'chat-menu fixed';
+  pop.setAttribute('role', 'menu');
+  pop.innerHTML = `<button class="chat-menu-btn rename-btn" type="button" role="menuitem">${ICON_RENAME}<span>Rename</span></button><button class="chat-menu-btn delete-btn" type="button" role="menuitem">${ICON_DELETE}<span>Delete</span></button>`;
+  document.body.appendChild(pop);
+  railMenuEl = pop;
+  positionRailItemMenu();
+
+  pop.addEventListener('click', (e) => e.stopPropagation());
+  pop.addEventListener('mousedown', (e) => e.stopPropagation());
+
+  pop.querySelector('.rename-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pop.innerHTML = `<div class="chat-menu-rename"><input class="chat-menu-input" type="text" value="${esc(title)}" maxlength="42" aria-label="Chat name"/><div class="chat-menu-rename-actions"><button class="rename-save" type="button" title="Save">${ICON_SAVE}</button><button class="rename-cancel" type="button" title="Cancel">${ICON_CANCEL}</button></div></div>`;
+    positionRailItemMenu();
+    const input = pop.querySelector('.chat-menu-input') as HTMLInputElement | null;
+    if (!input) return;
+    input.focus(); input.select();
+    const save = (): void => {
+      const v = input.value.trim();
+      if (v) renameSession(id, v);
+      closeRailItemMenu();
+      renderAll();
+      renderRailChats();
+    };
+    pop.querySelector('.rename-save')?.addEventListener('click', (ev) => { ev.stopPropagation(); save(); });
+    pop.querySelector('.rename-cancel')?.addEventListener('click', (ev) => { ev.stopPropagation(); closeRailItemMenu(); });
+    input.addEventListener('keydown', (ev) => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') { ev.preventDefault(); save(); }
+      if (ev.key === 'Escape') { ev.preventDefault(); closeRailItemMenu(); }
+    });
+    input.addEventListener('click', (ev) => ev.stopPropagation());
+  });
+
+  pop.querySelector('.delete-btn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    getAllTabs().filter(t => t.sessionId === id).forEach(tab => closeTab(tab.id));
+    deleteSession(id);
+    closeRailItemMenu();
+    renderAll();
+    renderRailChats();
+    if (!getCurrentSession()) document.dispatchEvent(new Event('asuum:welcome-mode'));
+  });
+}
+function positionRailItemMenu(): void {
+  const pop = railMenuEl, anchor = railMenuAnchor;
+  if (!pop || !anchor) return;
+  if (!document.body.contains(anchor)) { closeRailItemMenu(); return; }
+  const r = anchor.getBoundingClientRect();
+  const mw = pop.offsetWidth || 158;
+  const mh = pop.offsetHeight || 80;
+  let left = r.right - mw;
+  if (left < 8) left = 8;
+  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+  let top = r.top - mh - 4;
+  if (top < 8) top = r.bottom + 4;
+  if (top + mh > window.innerHeight - 8) top = window.innerHeight - mh - 8;
+  pop.style.left = `${left}px`;
+  pop.style.top = `${top}px`;
+}
+function closeRailItemMenu(): void {
+  railMenuAnchor?.closest('.chat-item')?.classList.remove('menu-open');
+  railMenuEl?.remove();
+  railMenuEl = null;
+  railMenuAnchor = null;
+}
+
+/* ───────────────────────── RENDER (expanded list) ───────────────────────── */
 function renderAll(): void {
   const content = document.querySelector('.sidebar-content');
   if (!content) return;
   closeMenu();
 
-  const sorted = [...getAllSessions()].sort((a, b) => b.updatedAt - a.updatedAt);
+  const sorted = sortedSessions();
   const activeId = getCurrentSession()?.id ?? null;
 
   let html = '';
-
   if (selectionMode) {
     html += `<div class="bulk-bar-sticky"><button class="bb-cancel" id="bulkCancelBtn" type="button">Cancel</button><span class="bb-count" id="bulkCount">0</span><button class="bb-delete" id="bulkDeleteBtn" type="button" title="Delete selected">${ICON_DELETE}<span class="bb-delete-text">Delete</span></button><button class="bb-dots" id="bulkDotsBtn" type="button" title="Selection options" aria-label="Selection options">${ICON_DOTS}</button></div>`;
   }
 
   html += `<div class="chat-list-area" role="listbox" aria-label="Chats" aria-multiselectable="${selectionMode}">`;
-
   if (sorted.length > 0) {
     html += `<div class="chat-group">`;
     for (const s of sorted) {
@@ -496,7 +796,6 @@ function renderAll(): void {
   } else {
     html += `<div class="sidebar-empty-state"><span class="ses-icon">${ICON_CHAT}</span><span>No chats yet</span><span class="ses-hint">Start a new conversation</span></div>`;
   }
-
   html += `</div>`;
 
   content.innerHTML = html;
@@ -582,7 +881,7 @@ function wireListEvents(): void {
   });
 }
 
-/* ───────────────────── ROW MENU ───────────────────── */
+/* ───────────────────── ROW MENU (expanded list) ───────────────────── */
 function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: string): void {
   closeMenu(); closeBulkMenu();
   const sb = sidebarEl;
@@ -612,6 +911,7 @@ function openChatMenu(anchor: HTMLElement, sessionId: string, currentTitle: stri
     deleteSession(sessionId);
     closeMenu();
     renderAll();
+    renderRailChats();
     if (!getCurrentSession()) document.dispatchEvent(new Event('asuum:welcome-mode'));
   });
 }
@@ -636,8 +936,12 @@ function positionMenu(): void {
   pop.style.top = `${top}px`;
 }
 function scheduleReposition(): void {
-  if (!menuEl || !menuAnchor || repositionRaf !== null) return;
-  repositionRaf = requestAnimationFrame(() => { repositionRaf = null; positionMenu(); });
+  if ((!menuEl && !railMenuEl) || repositionRaf !== null) return;
+  repositionRaf = requestAnimationFrame(() => {
+    repositionRaf = null;
+    if (menuEl && menuAnchor) positionMenu();
+    if (railMenuEl && railMenuAnchor) positionRailItemMenu();
+  });
 }
 
 function showChatRename(menu: HTMLElement, sessionId: string, currentTitle: string): void {
@@ -650,7 +954,7 @@ function showChatRename(menu: HTMLElement, sessionId: string, currentTitle: stri
   const save = (): void => {
     const v = input.value.trim();
     if (v) renameSession(sessionId, v);
-    closeMenu(); renderAll();
+    closeMenu(); renderAll(); renderRailChats();
   };
   menu.querySelector('.rename-save')?.addEventListener('click', (e) => { e.stopPropagation(); save(); });
   menu.querySelector('.rename-cancel')?.addEventListener('click', (e) => { e.stopPropagation(); closeMenu(); });

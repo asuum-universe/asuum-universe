@@ -1,4 +1,4 @@
-/** input-ui.ts — SMOOTH NO-FLICKER TREE SELECTOR + AUTO RESPONSIVE INPUT */
+/** input-ui.ts — NO-FLICKER TREE SELECTOR + RESPONSIVE INPUT + KEYBOARD LIFT */
 import { eventBus } from '../../../event-bus';
 import { getAllSavedProviders } from '../../../core/crypto';
 import { fetchModelsForProvider } from '../../../core/ai-router';
@@ -26,30 +26,41 @@ function save(key: string, val: string): void {
 function isMobileView(): boolean {
   return window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches;
 }
+/** Geometry change broadcast — scroll-to-bottom button isi pe follow karta hai */
+function emitGeometry(): void {
+  document.dispatchEvent(new CustomEvent('asuum:input-geometry'));
+}
 
 export function getSelectedProvider(): string { return selectedProviderId; }
 export function getSelectedModel(): string { return selectedModelId; }
 
 /* ─────────────────────────────────────────────────────────────────────
-   AUTO RESPONSIVE INPUT POSITIONING
-   · Mobile → centered floating card, 10px side gaps
-   · overflow VISIBLE → provider dropdown clip nahi hoti
+   RESPONSIVE INPUT + KEYBOARD LIFT
+   ---------------------------------------------------------------------
+   bottom = keyboardHeight + gap
+     · Android (interactive-widget=resizes-content) → innerHeight shrink
+       ho jata hai, keyboardHeight ≈ 0 → input already keyboard ke upar
+     · iOS → innerHeight same rehta hai, keyboardHeight = actual height
+       → input utna hi upar lift hota hai
+   Scroll lock: har viewport change pe window.scrollTo(0,0)
+     → header / menu / welcome text apni jagah pe STAY karte hain
    ───────────────────────────────────────────────────────────────────── */
 function setupResponsiveInput(
   inputContainer: HTMLElement,
-  _inputField: HTMLTextAreaElement,
+  inputField: HTMLTextAreaElement,
   mainPanel: HTMLElement | null
 ): void {
   const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BP}px)`);
 
   const SIDE_GAP_PX = 10;
   const WIDTH_CALC = `calc(100% - ${SIDE_GAP_PX * 2}px)`;
-  const BOTTOM_GAP = 'calc(16px + env(safe-area-inset-bottom, 0px))';
-  const KEYBOARD_GAP = '10px';
+  const BASE_BOTTOM = 'calc(16px + env(safe-area-inset-bottom, 0px))';
+  const KEYBOARD_GAP_PX = 10;
+  const KB_THRESHOLD = 80;
 
   const MOBILE_PROPS: Array<[string, string]> = [
     ['position', 'fixed'],
-    ['bottom', BOTTOM_GAP],
+    ['bottom', BASE_BOTTOM],
     ['left', '50%'],
     ['right', 'auto'],
     ['top', 'auto'],
@@ -67,15 +78,57 @@ function setupResponsiveInput(
     ['flex-direction', 'column'],
   ];
 
+  const lockCentering = (): void => {
+    inputContainer.style.setProperty('left', '50%', 'important');
+    inputContainer.style.setProperty('right', 'auto', 'important');
+    inputContainer.style.setProperty('top', 'auto', 'important');
+    inputContainer.style.setProperty('transform', 'translateX(-50%)', 'important');
+    inputContainer.style.setProperty('width', WIDTH_CALC, 'important');
+    inputContainer.style.setProperty('max-width', WIDTH_CALC, 'important');
+    inputContainer.style.setProperty('overflow', 'visible', 'important');
+  };
+
+  /** Keyboard measure karke input ko uske just upar rakhta hai */
+  const applyKeyboard = (): void => {
+    if (!mobileQuery.matches) return;
+
+    const vv = window.visualViewport;
+    const innerH = window.innerHeight;
+    const vvH = vv ? vv.height : innerH;
+    const vvTop = vv ? vv.offsetTop : 0;
+    const kb = Math.max(0, Math.round(innerH - vvH - vvTop));
+    const open = kb > KB_THRESHOLD;
+
+    mainPanel?.classList.toggle('keyboard-open', open);
+
+    if (open) {
+      inputContainer.style.setProperty('bottom', `${kb + KEYBOARD_GAP_PX}px`, 'important');
+    } else {
+      inputContainer.style.setProperty('bottom', BASE_BOTTOM, 'important');
+    }
+    lockCentering();
+
+    /* iOS auto-scroll-to-input neutralise → page/header/hero hilega nahi */
+    if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+
+    if (open) {
+      const chatMessages = document.querySelector('.chat-messages');
+      if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    emitGeometry();
+  };
+
   const applyLayout = (): void => {
     if (mobileQuery.matches) {
       MOBILE_PROPS.forEach(([prop, val]) => {
         inputContainer.style.setProperty(prop, val, 'important');
       });
+      applyKeyboard();
     } else {
-      MOBILE_PROPS.forEach(([prop]) => {
-        inputContainer.style.removeProperty(prop);
-      });
+      MOBILE_PROPS.forEach(([prop]) => { inputContainer.style.removeProperty(prop); });
+      mainPanel?.classList.remove('keyboard-open');
+      emitGeometry();
     }
   };
 
@@ -87,35 +140,20 @@ function setupResponsiveInput(
   }
 
   window.addEventListener('resize', applyLayout);
-  window.addEventListener('orientationchange', () => { setTimeout(applyLayout, 120); });
+  window.addEventListener('orientationchange', () => { setTimeout(applyLayout, 140); });
 
-  if ('visualViewport' in window && window.visualViewport) {
-    const vv = window.visualViewport;
-    vv.addEventListener('resize', () => {
-      if (!mobileQuery.matches) return;
-      const keyboardHeight = window.innerHeight - vv.height - vv.offsetTop;
-      if (keyboardHeight > 100) {
-        mainPanel?.classList.add('keyboard-open');
-        inputContainer.style.setProperty('bottom', KEYBOARD_GAP, 'important');
-      } else {
-        mainPanel?.classList.remove('keyboard-open');
-        inputContainer.style.setProperty('bottom', BOTTOM_GAP, 'important');
-      }
-      inputContainer.style.setProperty('left', '50%', 'important');
-      inputContainer.style.setProperty('right', 'auto', 'important');
-      inputContainer.style.setProperty('transform', 'translateX(-50%)', 'important');
-      inputContainer.style.setProperty('width', WIDTH_CALC, 'important');
-      inputContainer.style.setProperty('max-width', WIDTH_CALC, 'important');
-      inputContainer.style.setProperty('overflow', 'visible', 'important');
-
-      const chatMessages = document.querySelector('.chat-messages');
-      if (chatMessages && keyboardHeight > 100) {
-        setTimeout(() => {
-          chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
-        }, 100);
-      }
-    });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', applyKeyboard);
+    window.visualViewport.addEventListener('scroll', applyKeyboard);
   }
+
+  /* Keyboard animation ke daaran multiple passes → smooth, no jump */
+  inputField.addEventListener('focus', () => {
+    [0, 60, 140, 260, 400].forEach(d => setTimeout(applyKeyboard, d));
+  });
+  inputField.addEventListener('blur', () => {
+    [0, 100, 240, 380].forEach(d => setTimeout(applyKeyboard, d));
+  });
 
   applyLayout();
   setTimeout(applyLayout, 50);
@@ -123,7 +161,7 @@ function setupResponsiveInput(
 }
 
 export function initializeInputUI(): void {
-  console.log('⌨️ Input UI (Compact Dropdown · Reveal At Close-Button Spot · Zero Vibration)');
+  console.log('⌨️ Input UI (Compact Dropdown · Keyboard Lift · Scroll Lock)');
 
   const inputField = document.querySelector('.chat-input') as HTMLTextAreaElement | null;
   const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement | null;
@@ -173,12 +211,14 @@ export function initializeInputUI(): void {
     return !!panel && !panel.classList.contains('chat-active');
   }
 
+  /* Mobile → ALWAYS above. Desktop → welcome below, chat above. */
   function applyDropdownPosition(): void {
     const above = isMobileView() || !isWelcomeMode();
     dropdown.classList.toggle('pos-above', above);
     dropdown.classList.toggle('pos-below', !above);
   }
 
+  /* Compact mobile height — available space ke hisaab se, keyboard-safe */
   function syncDropdownHeight(): void {
     if (!isMobileView()) { dropdown.style.removeProperty('max-height'); return; }
     const r = selectorWrap.getBoundingClientRect();
@@ -365,6 +405,8 @@ export function initializeInputUI(): void {
   window.addEventListener('resize', refreshOpenDropdown);
   window.addEventListener('orientationchange', () => { setTimeout(refreshOpenDropdown, 150); });
   window.visualViewport?.addEventListener('resize', refreshOpenDropdown);
+  window.visualViewport?.addEventListener('scroll', refreshOpenDropdown);
+  document.addEventListener('asuum:input-geometry', refreshOpenDropdown);
 
   selectorWrap.appendChild(trigger);
   selectorWrap.appendChild(dropdown);
@@ -395,16 +437,12 @@ export function initializeInputUI(): void {
 
   /* ───────────────────────────────────────────────────────────────────
      REVEAL — close button ki EXACT jagah pe
-     Band ka centre = close button ka centre (same spot, no offset)
-     Geometry hover pe never change → arrow zero vibration
+     Band centre = close button centre. Hover pe geometry never changes
+     → arrow zero vibration.
      ─────────────────────────────────────────────────────────────────── */
   const REVEAL_H = 16;
-  let revealCenterX = 0;
-  let revealCenterY = 0;
 
   const placeRevealAt = (centerY: number, centerX: number): void => {
-    revealCenterY = centerY;
-    revealCenterX = centerX;
     const desiredTop = centerY - REVEAL_H / 2;
     const topValue =
       `max(2px, min(${desiredTop}px, calc(100% - ${REVEAL_H}px - env(safe-area-inset-bottom, 0px))))`;
@@ -431,7 +469,13 @@ export function initializeInputUI(): void {
       inputOpen = true;
       hideReveal();
       inputContainer.classList.remove('input-closed');
-      setTimeout(() => { inputField.style.height = ''; inputField.style.minHeight = ''; inputField.style.maxHeight = ''; inputField.style.overflowY = ''; }, 50);
+      setTimeout(() => {
+        inputField.style.height = '';
+        inputField.style.minHeight = '';
+        inputField.style.maxHeight = '';
+        inputField.style.overflowY = '';
+        emitGeometry();
+      }, 50);
     }
   };
 
@@ -441,6 +485,7 @@ export function initializeInputUI(): void {
     new MutationObserver(() => {
       if (!panel.classList.contains('chat-active') && !inputOpen) forceOpenOnWelcome();
       if (dropdownOpen) applyDropdownPosition();
+      emitGeometry();
     }).observe(panel, { attributes: true, attributeFilter: ['class'] });
   }
 
@@ -451,7 +496,14 @@ export function initializeInputUI(): void {
     if (inputOpen) {
       hideReveal();
       inputContainer.classList.remove('input-closed');
-      setTimeout(() => { inputField.focus(); inputField.style.height = ''; inputField.style.minHeight = ''; inputField.style.maxHeight = ''; inputField.style.overflowY = ''; }, 350);
+      setTimeout(() => {
+        inputField.focus();
+        inputField.style.height = '';
+        inputField.style.minHeight = '';
+        inputField.style.maxHeight = '';
+        inputField.style.overflowY = '';
+        emitGeometry();
+      }, 350);
     } else {
       /* Close button ka centre capture karo — reveal EXACTLY wahi banega */
       const r = closeBtn.getBoundingClientRect();
@@ -459,6 +511,8 @@ export function initializeInputUI(): void {
       inputContainer.classList.add('input-closed');
       inputField.blur();
     }
+    emitGeometry();
+    setTimeout(emitGeometry, 360);
   };
 
   closeBtn.addEventListener('click', toggleInput);
@@ -466,7 +520,7 @@ export function initializeInputUI(): void {
   line.addEventListener('click', toggleInput);
   inputContainer.addEventListener('click', (e: MouseEvent) => { if (!inputOpen && e.target !== inputField) toggleInput(); });
 
-  /* Resize / rotate pe reveal apni jagah pe recompute (band centre same) */
+  /* Resize / rotate / keyboard pe reveal apni jagah recompute */
   const repositionRevealIfClosed = (): void => {
     if (inputOpen) return;
     const c = inputContainer.getBoundingClientRect();
@@ -476,16 +530,25 @@ export function initializeInputUI(): void {
   window.addEventListener('resize', repositionRevealIfClosed);
   window.addEventListener('orientationchange', () => { setTimeout(repositionRevealIfClosed, 150); });
   window.visualViewport?.addEventListener('resize', () => { setTimeout(repositionRevealIfClosed, 60); });
+  document.addEventListener('asuum:input-geometry', repositionRevealIfClosed);
 
   const autoResize = (): void => {
     if (!inputOpen) return;
-    if (inputField.value.trim() === '') { inputField.style.height = ''; inputField.style.overflowY = 'hidden'; if (sendBtn) sendBtn.disabled = true; return; }
-    inputField.style.height = 'auto'; inputField.style.overflowY = 'hidden';
+    if (inputField.value.trim() === '') {
+      inputField.style.height = '';
+      inputField.style.overflowY = 'hidden';
+      if (sendBtn) sendBtn.disabled = true;
+      emitGeometry();
+      return;
+    }
+    inputField.style.height = 'auto';
+    inputField.style.overflowY = 'hidden';
     const sh = inputField.scrollHeight;
     if (sh > MAX_HEIGHT) { inputField.style.height = MAX_HEIGHT + 'px'; inputField.style.overflowY = 'auto'; }
     else { inputField.style.height = sh + 'px'; inputField.style.overflowY = 'hidden'; }
     if (sendBtn) sendBtn.disabled = inputField.value.trim().length === 0;
     if (dropdownOpen) syncDropdownHeight();
+    emitGeometry();
   };
 
   const sendMessage = (): void => {
@@ -501,7 +564,9 @@ export function initializeInputUI(): void {
   };
 
   inputField.addEventListener('input', autoResize);
-  inputField.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMessage(); } });
+  inputField.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMessage(); }
+  });
   if (sendBtn) { sendBtn.addEventListener('click', sendMessage); sendBtn.disabled = true; }
   if (plusBtn) { plusBtn.addEventListener('click', () => { console.log('➕ Plus clicked'); }); }
   autoResize();

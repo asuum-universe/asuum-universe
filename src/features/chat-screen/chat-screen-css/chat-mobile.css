@@ -1,43 +1,50 @@
 /* ==========================================================================
-   chat-mobile.css — MOBILE CHAT + TOP LAYER + THREE-LINE MENU OVERRIDES
+   chat-mobile.css — MOBILE OVERRIDE LAYER ONLY
    Must load AFTER chat-main.css.
    --------------------------------------------------------------------------
-   --top-layer-h    : 30px (header 2+28=30, menu 2+28=30 → flush)
-   --top-layer-hero : 56px (hero header 2+54=56 → flush)
-   --top-gap        : first message ka layer se gap
+   · NO top layer (desktop se bhi hata diya)
+   · Timeline / chat-recorder + hover scrollbar = DESKTOP ONLY → hidden
+   · Scroll-to-bottom button input ke right-top pe (JS positions it)
+   · Shell scroll-locked → keyboard pe page scroll nahi hota
    ========================================================================== */
 
 @media(max-width:768px){
 
-  .main-panel{--top-layer-h:30px;--top-layer-hero:56px;--top-gap:4px}
-
-  /* ✅ CONSTANT padding — header open/close se messages ZERO shift */
+  /* ✅ Content header ke neeche se start — CONSTANT */
   html .main-area .main-panel.chat-active .chat-screen,
-  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:calc(var(--top-layer-h) + var(--top-gap))!important}
+  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:34px!important}
+
+  html .main-area .main-panel.chat-active .chat-screen{
+    overflow:hidden!important;
+    overscroll-behavior:none!important;
+  }
 
   /* ── CHAT MESSAGES ── */
-  .chat-messages{width:95%;padding:3px 0 5px}
+  .chat-messages{width:95%;padding:3px 0 5px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   .message-row.user{padding-left:8%}
   .message-bubble{font-size:.86rem;padding:6px 11px}
   .message-row.ai .message-bubble{padding:1px 0 0 0}
   .chat-end-spacer{height:5vh;min-height:24px}
-  .timeline-system{bottom:72px}
-  .timeline-system:hover .timeline-window{width:160px}
-  .scroll-to-bottom-btn{bottom:56px;right:10px;width:26px;height:26px}
 
-  /* ── THREE-LINE MENU · top:2px so 2+28=30px flush with band ── */
-  .mm-wrap{
-    top:2px!important;
-    right:6px!important;
-    z-index:300!important;
+  /* ✅ DESKTOP-ONLY chrome — mobile pe completely removed */
+  .timeline-system,
+  .chat-scrollbar,
+  .chat-scrollbar-hover-zone{display:none!important}
+
+  /* ✅ SCROLL-TO-BOTTOM — compact, input-anchored (JS transform) */
+  .scroll-to-bottom-btn{
+    width:30px!important;height:30px!important;
+    box-shadow:0 2px 10px rgba(0,0,0,.14)!important;
+    z-index:130!important;
   }
+  .scroll-to-bottom-btn svg{width:12px!important;height:12px!important}
+
+  /* ── THREE-LINE MENU ── */
+  .mm-wrap{top:2px!important;right:6px!important;z-index:300!important}
   .mm-btn{
-    width:28px!important;height:28px!important;
-    gap:3px!important;
-    background:transparent!important;border:none!important;
-    border-radius:50%!important;
-    box-shadow:none!important;
-    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+    width:28px!important;height:28px!important;gap:3px!important;
+    background:transparent!important;border:none!important;border-radius:50%!important;
+    box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
   }
   .mm-btn:hover{background:var(--theme-surface-hover)!important}
   .mm-line{width:12px!important;height:2px!important;border-radius:0!important}
@@ -45,12 +52,9 @@
   .mm-wrap.open .mm-line:nth-child(3){transform:translateY(-5px) rotate(-45deg)!important}
 
   .mm-menu{
-    min-width:176px!important;
-    max-width:min(240px,84vw)!important;
-    right:0!important;
-    top:calc(100% + 3px)!important;
-    border-radius:11px!important;
-    padding:5px!important;
+    min-width:176px!important;max-width:min(240px,84vw)!important;
+    right:0!important;top:calc(100% + 3px)!important;
+    border-radius:11px!important;padding:5px!important;
     box-shadow:none!important;filter:none!important;
     backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
   }
@@ -59,30 +63,33 @@
   .mm-item svg{width:15px!important;height:15px!important}
   .mm-theme-toggle{margin-top:2px!important}
 
-  /* ── CHAT RULES MODAL ── */
+  /* ── MODALS ── */
   .cr-modal{border-radius:14px}
   .cr-header{padding:16px 18px}
   .cr-body{padding:14px 18px}
   .cr-footer{padding:12px 18px}
-
-  /* ── MODEL HUB MODAL ── */
   .mh-modal{border-radius:14px}
   .mh-header{padding:14px 18px}
   .mh-categories{padding:8px 18px}
   .mh-body{padding:14px 18px 18px}
   .mh-providers-grid{grid-template-columns:1fr}
+
+  /* ✅ Input ke peeche koi layer nahi — messages seedha input ke neeche */
+  .main-panel.chat-active .chat-messages{padding-bottom:calc(122px + env(safe-area-inset-bottom,0px))!important}
+}
+
+@media(max-width:480px){
+  .scroll-to-bottom-btn{width:28px!important;height:28px!important}
+  .main-panel.chat-active .chat-messages{padding-bottom:calc(114px + env(safe-area-inset-bottom,0px))!important}
 }
 
 @media(max-width:380px){
-  .main-panel{--top-layer-h:30px;--top-layer-hero:56px;--top-gap:3px}
+  html .main-area .main-panel.chat-active .chat-screen,
+  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:33px!important}
   .mm-wrap{top:2px!important;right:5px!important}
   .mm-menu{min-width:160px!important;max-width:min(220px,82vw)!important}
-  .scroll-to-bottom-btn{right:8px}
-
-  html .main-area .main-panel.chat-active .chat-screen,
-  html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top:calc(var(--top-layer-h) + var(--top-gap))!important}
 }
 
 @media(prefers-reduced-motion:reduce){
-  .mm-wrap,.mm-btn,.mm-line,.mm-menu,.mm-item,.cr-modal,.mh-modal,.main-panel::before{animation:none!important;transition:none!important}
+  .mm-wrap,.mm-btn,.mm-line,.mm-menu,.mm-item,.cr-modal,.mh-modal,.scroll-to-bottom-btn{animation:none!important;transition:none!important}
 }

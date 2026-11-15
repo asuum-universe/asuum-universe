@@ -1,11 +1,9 @@
 /* ==========================================================================
-   sidebar-mobile.css — MOBILE OVERRIDE LAYER ONLY (SLIM / TIGHT)
+   sidebar-mobile.css — MOBILE OVERRIDE LAYER ONLY
    Must load AFTER sidebar-main.css. Overrides only.
    --------------------------------------------------------------------------
-   drawer 276 · pad 9 · top 40 · row 34 · chat 35 · profile 40
-   No "All Chats" header, no date group labels.
-   Icon rail: model-hub 25.5px · new-chat compensated to 25.5px (aligned)
-   Scrim = full viewport, opacity driven by swipe progress.
+   Drawer width fixed (276 / 264) → icons already still.
+   Rail shortcut + flyout are DESKTOP-ONLY → hidden here.
    ========================================================================== */
 
 @media(max-width:768px){
@@ -36,44 +34,29 @@
   .sidebar.dragging{transition:none!important}
   .sidebar.hub-fullscreen{transform:translateX(0)!important;width:100%!important}
 
-  /* ── TOP ── */
   .sb-top{height:40px!important;min-height:40px!important;grid-template-columns:1fr 44px!important;padding:0 0 0 11px!important}
   .sb-brand{opacity:1!important}
   .sb-logo-text{font-size:.98rem!important;letter-spacing:-.4px!important}
   .sb-toggle-btn{width:30px!important;height:30px!important;min-width:30px!important;border-radius:8px!important}
   .sb-toggle-btn svg{width:17px!important;height:17px!important}
 
-  /* ── ACTIONS ── */
   .sb-middle{padding:1px 9px 0!important;gap:1px!important}
   .sidebar .sidebar-content{opacity:1!important;pointer-events:auto!important;transition:none!important}
 
-  .new-chat-box{
-    padding:3px!important;
-    margin:0 0 3px 0!important;
-    border-radius:9px!important;
-  }
-  .new-chat-box:hover{
-    background:var(--sidebar-hover,rgba(255,255,255,.04))!important;
-    border-color:var(--sidebar-border,rgba(255,255,255,.12))!important;
-    box-shadow:0 2px 8px rgba(0,0,0,.15),0 1px 3px rgba(0,0,0,.1)!important;
-  }
+  .new-chat-box{padding:3px!important;margin:0 0 3px 0!important;border-radius:9px!important}
+  .new-chat-box:hover{background:var(--sidebar-hover,rgba(255,255,255,.04))!important;border-color:var(--sidebar-border,rgba(255,255,255,.12))!important;box-shadow:0 2px 8px rgba(0,0,0,.15),0 1px 3px rgba(0,0,0,.1)!important}
   .sb-action-btn.new-chat-btn:hover{background:transparent!important}
 
   .sb-action-btn{height:34px!important;min-height:34px!important;border-radius:8px!important}
-  /* Drawer width is fixed → icons always rail-aligned (never centre-shift) */
-  .sb-action-btn svg,
-  .sidebar:not(.expanded) .sb-action-btn svg{
-    width:17px!important;height:17px!important;
-    left:8px!important;
-    transform:translateY(-50%)!important;
-  }
-  /* new-chat box inset compensation → same 25.5px centre as model hub */
-  .sidebar .new-chat-box .sb-action-btn svg{left:4px!important}
+  .sb-action-btn svg{width:17px!important;height:17px!important;left:8px!important;transform:translateY(-50%)!important}
+  .new-chat-box .sb-action-btn svg{left:4px!important}
   .sb-btn-text{opacity:1!important;max-width:190px!important;transform:translateX(0)!important;margin-left:33px!important;font-size:.85rem!important}
-  .sidebar .new-chat-box .sb-btn-text{margin-left:29px!important}
+  .new-chat-box .sb-btn-text{margin-left:29px!important}
   .sb-divider,.sb-divider.sb-divider-spaced{width:100%!important;margin:2px 0 1px!important}
 
-  /* ── SELECTION BAR ── */
+  /* Rail shortcut is desktop-only */
+  .sb-rail-chats-btn,.rail-chats-pop{display:none!important}
+
   .bulk-bar-sticky{padding:2px 4px 2px 9px!important;min-height:23px!important}
   .bb-cancel,.bb-delete{padding:4px 8px!important;font-size:.74rem!important;border-radius:6px!important}
   .bb-count{font-size:.66rem!important;min-width:15px!important}
@@ -81,7 +64,6 @@
   .bb-dots svg{width:13px!important;height:13px!important}
   .bb-delete svg{width:12px!important;height:12px!important}
 
-  /* ── CHAT LIST · flat, dense ── */
   .chat-list-area{padding:4px 0 6px!important}
   .chat-list-area::-webkit-scrollbar{width:3px}
   .chat-group{gap:2px!important}
@@ -98,7 +80,6 @@
   .sidebar-empty-state .ses-icon svg{width:17px!important;height:17px!important}
   .sidebar-empty-state .ses-hint{font-size:.66rem!important}
 
-  /* ── PROFILE ── */
   .sb-bottom{padding:6px 9px calc(7px + env(safe-area-inset-bottom))!important;border-top:1px solid var(--sidebar-border,#1a1a1a)!important}
   .sb-profile-box{width:100%!important;height:40px!important;border-radius:9px!important;background:var(--sidebar-hover,rgba(255,255,255,.035))!important;border:1px solid var(--sidebar-border,rgba(255,255,255,.07))!important}
   .sb-avatar{left:5px!important;transform:translateY(-50%)!important;width:27px!important;height:27px!important;min-width:27px!important}
@@ -110,7 +91,6 @@
   .sb-theme-toggle{opacity:1!important;pointer-events:auto!important;width:27px!important;height:27px!important;min-width:27px!important;right:6px!important;border-radius:7px!important}
   .sb-theme-toggle svg{width:13px!important;height:13px!important}
 
-  /* ── ROW MENU ── */
   .chat-menu{min-width:168px;border-radius:9px;padding:4px}
   .chat-menu-btn{padding:9px 11px!important;font-size:.8rem!important;border-radius:7px!important;gap:8px!important}
   .chat-menu-btn svg{width:13px!important;height:13px!important}
@@ -119,12 +99,10 @@
   .rename-save,.rename-cancel{width:28px!important;height:28px!important;border-radius:6px!important}
   .rename-save svg,.rename-cancel svg{width:12px!important;height:12px!important}
 
-  /* ── BULK DROPDOWN ── */
   .bulk-dropdown{min-width:176px;padding:4px;border-radius:9px}
   .bulk-dropdown-item{padding:9px 11px!important;font-size:.8rem!important;border-radius:7px!important;gap:8px!important}
   .bulk-dropdown-item svg{width:13px!important;height:13px!important}
 
-  /* ── SCRIM covers whole viewport, drawer sits above it ── */
   .sidebar-mobile-overlay{left:0!important;right:0!important;top:0!important;bottom:0!important}
 
   .main-panel{border-radius:0!important}
@@ -138,6 +116,6 @@
   .sb-btn-text{max-width:168px!important}
   .sb-profile-info{max-width:122px!important}
   .new-chat-box{padding:2px!important;border-radius:8px!important}
-  .sidebar .new-chat-box .sb-action-btn svg{left:5px!important}
-  .sidebar .new-chat-box .sb-btn-text{margin-left:30px!important}
+  .new-chat-box .sb-action-btn svg{left:5px!important}
+  .new-chat-box .sb-btn-text{margin-left:30px!important}
 }

@@ -1,0 +1,98 @@
+/* ==========================================================================
+   welcome-mobile.css — MOBILE OVERRIDE LAYER ONLY
+   Must load AFTER welcome-main.css.
+   --------------------------------------------------------------------------
+   · Shell scroll-locked → keyboard khulne par page scroll NAHI hota
+   · Hero upper area mein pinned, keyboard pe smoothly upar shift
+   · Input bottom-fixed (JS keyboard lift handle karta hai)
+   ========================================================================== */
+
+@media(max-width:768px){
+
+  html .main-area .main-panel{
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:flex-end!important;
+    align-items:center!important;
+    overflow:hidden!important;
+    border-radius:6px;
+    overscroll-behavior:none!important;
+  }
+
+  /* ── HERO — pinned, never scrolls ── */
+  html .main-panel:not(.chat-active) .welcome-hero-container{
+    position:absolute!important;
+    top:30%!important;
+    left:50%!important;
+    transform:translate(-50%,-50%)!important;
+    width:92%!important;
+    max-width:none!important;
+    transition:top .3s cubic-bezier(.22,1,.36,1),opacity .28s ease,transform .3s cubic-bezier(.22,1,.36,1)!important;
+  }
+  /* Keyboard open → hero thoda upar + halka fade (professional focus shift) */
+  html .main-panel:not(.chat-active).keyboard-open .welcome-hero-container{
+    top:20%!important;
+    opacity:.9!important;
+  }
+
+  html .main-panel:not(.chat-active) .welcome-line{
+    font-size:1.42rem!important;
+    min-height:1.95rem!important;
+    margin-bottom:8px!important;
+    white-space:normal!important;
+    text-align:center!important;
+    letter-spacing:-.03em!important;
+  }
+  html .main-panel:not(.chat-active) .welcome-line.subtitle-line{
+    font-size:.84rem!important;
+    min-height:1.25rem!important;
+    white-space:normal!important;
+    margin-bottom:0!important;
+  }
+  html .main-panel:not(.chat-active).keyboard-open .welcome-line{font-size:1.24rem!important;min-height:1.7rem!important}
+  html .main-panel:not(.chat-active).keyboard-open .welcome-line.subtitle-line{font-size:.78rem!important;min-height:1.1rem!important}
+
+  .typewriter-cursor{height:1.45rem}
+  .welcome-line.subtitle-line .typewriter-cursor{height:1rem}
+
+  /* ── INPUT — bottom-fixed (first-paint safe; JS overrides inline) ── */
+  html .main-panel:not(.chat-active) .input-container{
+    position:fixed!important;
+    top:auto!important;
+    bottom:calc(16px + env(safe-area-inset-bottom,0px))!important;
+    left:50%!important;
+    right:auto!important;
+    transform:translateX(-50%)!important;
+    width:calc(100% - 20px)!important;
+    max-width:calc(100% - 20px)!important;
+    margin:0!important;
+    opacity:1!important;
+    z-index:100!important;
+  }
+  html .main-panel:not(.chat-active) .input-container.visible{opacity:1!important}
+
+  /* Welcome mode mein chat chrome hidden */
+  .main-panel:not(.chat-active) .chat-screen,
+  .main-panel:not(.chat-active) .timeline-system,
+  .main-panel:not(.chat-active) .chat-scrollbar,
+  .main-panel:not(.chat-active) .chat-scrollbar-hover-zone{display:none!important}
+}
+
+@media(max-width:480px){
+  html .main-area .main-panel{border-radius:4px}
+  html .main-panel:not(.chat-active) .welcome-hero-container{top:28%!important;width:94%!important}
+  html .main-panel:not(.chat-active).keyboard-open .welcome-hero-container{top:18%!important}
+  html .main-panel:not(.chat-active) .welcome-line{font-size:1.28rem!important;min-height:1.8rem!important}
+  html .main-panel:not(.chat-active) .welcome-line.subtitle-line{font-size:.8rem!important;min-height:1.2rem!important}
+  html .main-panel:not(.chat-active).keyboard-open .welcome-line{font-size:1.14rem!important;min-height:1.55rem!important}
+  .typewriter-cursor{height:1.3rem}
+}
+
+@media(max-width:380px){
+  html .main-panel:not(.chat-active) .welcome-line{font-size:1.18rem!important}
+  html .main-panel:not(.chat-active) .welcome-line.subtitle-line{font-size:.76rem!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .welcome-hero-container,.welcome-line,.input-container{transition:none!important;animation:none!important}
+}
