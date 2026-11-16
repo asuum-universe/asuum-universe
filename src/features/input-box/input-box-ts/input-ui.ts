@@ -1,4 +1,4 @@
-/** input-ui.ts — NO-FLICKER TREE SELECTOR + RESPONSIVE INPUT + KEYBOARD LIFT */
+/** input-ui.ts — TREE SELECTOR + PANEL-CENTRED FIXED INPUT + ZERO-JUMP REVEAL */
 import { eventBus } from '../../../event-bus';
 import { getAllSavedProviders } from '../../../core/crypto';
 import { fetchModelsForProvider } from '../../../core/ai-router';
@@ -26,7 +26,6 @@ function save(key: string, val: string): void {
 function isMobileView(): boolean {
   return window.matchMedia(`(max-width: ${MOBILE_BP}px)`).matches;
 }
-/** Geometry change broadcast — scroll-to-bottom button isi pe follow karta hai */
 function emitGeometry(): void {
   document.dispatchEvent(new CustomEvent('asuum:input-geometry'));
 }
@@ -35,133 +34,155 @@ export function getSelectedProvider(): string { return selectedProviderId; }
 export function getSelectedModel(): string { return selectedModelId; }
 
 /* ─────────────────────────────────────────────────────────────────────
-   RESPONSIVE INPUT + KEYBOARD LIFT
-   ---------------------------------------------------------------------
-   bottom = keyboardHeight + gap
-     · Android (interactive-widget=resizes-content) → innerHeight shrink
-       ho jata hai, keyboardHeight ≈ 0 → input already keyboard ke upar
-     · iOS → innerHeight same rehta hai, keyboardHeight = actual height
-       → input utna hi upar lift hota hai
-   Scroll lock: har viewport change pe window.scrollTo(0,0)
-     → header / menu / welcome text apni jagah pe STAY karte hain
+   GEOMETRY ONLY — display / opacity / visibility ko touch NAHI karta.
+   Open/close applyClosed() karta hai (display:none se — simple, reliable).
    ───────────────────────────────────────────────────────────────────── */
 function setupResponsiveInput(
   inputContainer: HTMLElement,
   inputField: HTMLTextAreaElement,
-  mainPanel: HTMLElement | null
-): void {
+  mainPanel: HTMLElement | null,
+  isOpen: () => boolean
+): { refresh: () => void } {
   const mobileQuery = window.matchMedia(`(max-width: ${MOBILE_BP}px)`);
 
-  const SIDE_GAP_PX = 10;
-  const WIDTH_CALC = `calc(100% - ${SIDE_GAP_PX * 2}px)`;
-  const BASE_BOTTOM = 'calc(16px + env(safe-area-inset-bottom, 0px))';
+  const DESKTOP_BOTTOM = '16px';
+  const DESKTOP_RADIUS = '14px';
+  const MOBILE_BOTTOM = 'calc(16px + env(safe-area-inset-bottom, 0px))';
+  const MOBILE_RADIUS = '16px';
   const KEYBOARD_GAP_PX = 10;
   const KB_THRESHOLD = 80;
+  const CLOSED_H = 44;
 
-  const MOBILE_PROPS: Array<[string, string]> = [
-    ['position', 'fixed'],
-    ['bottom', BASE_BOTTOM],
-    ['left', '50%'],
-    ['right', 'auto'],
-    ['top', 'auto'],
-    ['transform', 'translateX(-50%)'],
-    ['width', WIDTH_CALC],
-    ['max-width', WIDTH_CALC],
-    ['box-sizing', 'border-box'],
-    ['margin', '0'],
-    ['z-index', '100'],
-    ['border-radius', '16px'],
-    ['overflow', 'visible'],
-    ['opacity', '1'],
-    ['visibility', 'visible'],
-    ['display', 'flex'],
-    ['flex-direction', 'column'],
-  ];
+  const panelEl: HTMLElement | null =
+    mainPanel ?? (inputContainer.closest('.main-panel') as HTMLElement | null);
 
-  const lockCentering = (): void => {
-    inputContainer.style.setProperty('left', '50%', 'important');
-    inputContainer.style.setProperty('right', 'auto', 'important');
-    inputContainer.style.setProperty('top', 'auto', 'important');
-    inputContainer.style.setProperty('transform', 'translateX(-50%)', 'important');
-    inputContainer.style.setProperty('width', WIDTH_CALC, 'important');
-    inputContainer.style.setProperty('max-width', WIDTH_CALC, 'important');
-    inputContainer.style.setProperty('overflow', 'visible', 'important');
+  const set = (p: string, v: string): void => { inputContainer.style.setProperty(p, v, 'important'); };
+  const unset = (p: string): void => { inputContainer.style.removeProperty(p); };
+
+  const applyClosed = (): void => {
+    const closed = !isOpen();
+    const actions = inputContainer.querySelector('.input-actions') as HTMLElement | null;
+    const closeB = inputContainer.querySelector('.input-close-btn') as HTMLElement | null;
+
+    inputContainer.classList.toggle('input-closed', closed);
+
+    if (closed) {
+      set('height', `${CLOSED_H}px`);
+      set('min-height', `${CLOSED_H}px`);
+      set('background', 'transparent');
+      set('border', 'none');
+      set('box-shadow', 'none');
+      set('padding', '0');
+      set('cursor', 'pointer');
+      inputField.style.setProperty('display', 'none', 'important');
+      actions?.style.setProperty('display', 'none', 'important');
+      closeB?.style.setProperty('display', 'none', 'important');
+    } else {
+      unset('height'); unset('min-height');
+      unset('background'); unset('border'); unset('box-shadow');
+      unset('padding'); unset('cursor');
+      inputField.style.removeProperty('display');
+      actions?.style.removeProperty('display');
+      closeB?.style.removeProperty('display');
+    }
   };
 
-  /** Keyboard measure karke input ko uske just upar rakhta hai */
-  const applyKeyboard = (): void => {
-    if (!mobileQuery.matches) return;
+  const positionInput = (): void => {
+    const mobile = mobileQuery.matches;
+    const r = panelEl?.getBoundingClientRect();
+    const panelLeft = r ? r.left : 0;
+    const panelWidth = r && r.width > 0 ? r.width : window.innerWidth;
 
-    const vv = window.visualViewport;
-    const innerH = window.innerHeight;
-    const vvH = vv ? vv.height : innerH;
-    const vvTop = vv ? vv.offsetTop : 0;
-    const kb = Math.max(0, Math.round(innerH - vvH - vvTop));
-    const open = kb > KB_THRESHOLD;
+    const centerX = panelLeft + panelWidth / 2;
+    const width = mobile
+      ? Math.max(220, panelWidth - 20)
+      : Math.min(panelWidth * 0.9, 760);
 
-    mainPanel?.classList.toggle('keyboard-open', open);
+    set('position', 'fixed');
+    set('left', `${Math.round(centerX)}px`);
+    set('right', 'auto');
+    set('top', 'auto');
+    set('transform', 'translateX(-50%)');
+    set('margin', '0');
+    set('box-sizing', 'border-box');
+    set('width', `${Math.round(width)}px`);
+    set('max-width', `${Math.round(width)}px`);
+    set('border-radius', mobile ? MOBILE_RADIUS : DESKTOP_RADIUS);
+    set('z-index', '100');
+    set('overflow', 'visible');
+  };
 
-    if (open) {
-      inputContainer.style.setProperty('bottom', `${kb + KEYBOARD_GAP_PX}px`, 'important');
+  const applyAll = (): void => {
+    positionInput();
+    applyClosed();
+
+    if (mobileQuery.matches) {
+      const vv = window.visualViewport;
+      const innerH = window.innerHeight;
+      const vvH = vv ? vv.height : innerH;
+      const vvTop = vv ? vv.offsetTop : 0;
+      const kb = Math.max(0, Math.round(innerH - vvH - vvTop));
+      const open = kb > KB_THRESHOLD;
+
+      mainPanel?.classList.toggle('keyboard-open', open);
+      set('bottom', open ? `${kb + KEYBOARD_GAP_PX}px` : MOBILE_BOTTOM);
+
+      if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
+
+      if (open && isOpen()) {
+        const cm = document.querySelector('.chat-messages');
+        if (cm) cm.scrollTop = cm.scrollHeight;
+      }
     } else {
-      inputContainer.style.setProperty('bottom', BASE_BOTTOM, 'important');
-    }
-    lockCentering();
-
-    /* iOS auto-scroll-to-input neutralise → page/header/hero hilega nahi */
-    if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0);
-
-    if (open) {
-      const chatMessages = document.querySelector('.chat-messages');
-      if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
+      mainPanel?.classList.remove('keyboard-open');
+      set('bottom', DESKTOP_BOTTOM);
     }
 
     emitGeometry();
   };
 
-  const applyLayout = (): void => {
-    if (mobileQuery.matches) {
-      MOBILE_PROPS.forEach(([prop, val]) => {
-        inputContainer.style.setProperty(prop, val, 'important');
-      });
-      applyKeyboard();
-    } else {
-      MOBILE_PROPS.forEach(([prop]) => { inputContainer.style.removeProperty(prop); });
-      mainPanel?.classList.remove('keyboard-open');
-      emitGeometry();
-    }
+  let posRaf: number | null = null;
+  const schedule = (): void => {
+    if (posRaf !== null) return;
+    posRaf = requestAnimationFrame(() => { posRaf = null; applyAll(); });
   };
 
-  const onQueryChange = (): void => applyLayout();
   if (typeof mobileQuery.addEventListener === 'function') {
-    mobileQuery.addEventListener('change', onQueryChange);
+    mobileQuery.addEventListener('change', applyAll);
   } else {
-    (mobileQuery as unknown as { addListener: (fn: () => void) => void }).addListener(onQueryChange);
+    (mobileQuery as unknown as { addListener: (fn: () => void) => void }).addListener(applyAll);
   }
 
-  window.addEventListener('resize', applyLayout);
-  window.addEventListener('orientationchange', () => { setTimeout(applyLayout, 140); });
+  window.addEventListener('resize', schedule);
+  window.addEventListener('orientationchange', () => { setTimeout(applyAll, 140); });
+
+  if (panelEl && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => schedule()).observe(panelEl);
+  }
 
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', applyKeyboard);
-    window.visualViewport.addEventListener('scroll', applyKeyboard);
+    window.visualViewport.addEventListener('resize', schedule);
+    window.visualViewport.addEventListener('scroll', schedule);
   }
 
-  /* Keyboard animation ke daaran multiple passes → smooth, no jump */
   inputField.addEventListener('focus', () => {
-    [0, 60, 140, 260, 400].forEach(d => setTimeout(applyKeyboard, d));
+    [0, 60, 140, 260, 400].forEach(d => setTimeout(schedule, d));
   });
   inputField.addEventListener('blur', () => {
-    [0, 100, 240, 380].forEach(d => setTimeout(applyKeyboard, d));
+    [0, 100, 240, 380].forEach(d => setTimeout(schedule, d));
   });
 
-  applyLayout();
-  setTimeout(applyLayout, 50);
-  setTimeout(applyLayout, 300);
+  document.addEventListener('asuum:chat-mode', () => setTimeout(schedule, 60));
+
+  applyAll();
+  setTimeout(applyAll, 50);
+  setTimeout(applyAll, 300);
+
+  return { refresh: applyAll };
 }
 
 export function initializeInputUI(): void {
-  console.log('⌨️ Input UI (Compact Dropdown · Keyboard Lift · Scroll Lock)');
+  console.log('⌨️ Input UI (Zero-Jump Reveal · Panel-Centred Fixed)');
 
   const inputField = document.querySelector('.chat-input') as HTMLTextAreaElement | null;
   const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement | null;
@@ -172,7 +193,8 @@ export function initializeInputUI(): void {
 
   if (!inputField || !inputContainer || !actionsBar) return;
 
-  setupResponsiveInput(inputContainer, inputField, mainPanel);
+  let inputOpen = true;
+  const inputApi = setupResponsiveInput(inputContainer, inputField, mainPanel, () => inputOpen);
 
   selectedProviderId = getStored('asuum_selected_provider', 'auto');
   selectedModelId = getStored('asuum_selected_model', 'auto');
@@ -211,14 +233,12 @@ export function initializeInputUI(): void {
     return !!panel && !panel.classList.contains('chat-active');
   }
 
-  /* Mobile → ALWAYS above. Desktop → welcome below, chat above. */
   function applyDropdownPosition(): void {
     const above = isMobileView() || !isWelcomeMode();
     dropdown.classList.toggle('pos-above', above);
     dropdown.classList.toggle('pos-below', !above);
   }
 
-  /* Compact mobile height — available space ke hisaab se, keyboard-safe */
   function syncDropdownHeight(): void {
     if (!isMobileView()) { dropdown.style.removeProperty('max-height'); return; }
     const r = selectorWrap.getBoundingClientRect();
@@ -405,7 +425,6 @@ export function initializeInputUI(): void {
   window.addEventListener('resize', refreshOpenDropdown);
   window.addEventListener('orientationchange', () => { setTimeout(refreshOpenDropdown, 150); });
   window.visualViewport?.addEventListener('resize', refreshOpenDropdown);
-  window.visualViewport?.addEventListener('scroll', refreshOpenDropdown);
   document.addEventListener('asuum:input-geometry', refreshOpenDropdown);
 
   selectorWrap.appendChild(trigger);
@@ -433,25 +452,37 @@ export function initializeInputUI(): void {
   fixedReveal.appendChild(line);
   document.body.appendChild(fixedReveal);
 
-  let inputOpen = true;
-
   /* ───────────────────────────────────────────────────────────────────
-     REVEAL — close button ki EXACT jagah pe
-     Band centre = close button centre. Hover pe geometry never changes
-     → arrow zero vibration.
+     ✅ ZERO-JUMP REVEAL — close button ki EXACT jagah
+     Close se pehle button ka centre capture → reveal wahin center.
+     Container bottom-anchored hai (height change se bottom edge same),
+     isliye open→close→open pe spot bilkul nahi hilta.
      ─────────────────────────────────────────────────────────────────── */
   const REVEAL_H = 16;
+  let revealAnchor: { x: number; y: number } | null = null;
 
-  const placeRevealAt = (centerY: number, centerX: number): void => {
-    const desiredTop = centerY - REVEAL_H / 2;
+  const measureCloseCenter = (): { x: number; y: number } | null => {
+    const r = closeBtn.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) {
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+    const c = inputContainer.getBoundingClientRect();
+    if (c.width <= 0) return null;
+    const bh = closeBtn.offsetHeight || 20;
+    return { x: c.left + c.width / 2, y: c.bottom - bh / 2 };
+  };
+
+  const placeRevealAtAnchor = (): void => {
+    if (!revealAnchor) revealAnchor = measureCloseCenter();
+    if (!revealAnchor) return;
     const topValue =
-      `max(2px, min(${desiredTop}px, calc(100% - ${REVEAL_H}px - env(safe-area-inset-bottom, 0px))))`;
+      `max(2px, min(${Math.round(revealAnchor.y - REVEAL_H / 2)}px, calc(100% - ${REVEAL_H}px - env(safe-area-inset-bottom, 0px))))`;
     fixedReveal.style.setProperty('position', 'fixed', 'important');
     fixedReveal.style.setProperty('display', 'flex', 'important');
     fixedReveal.style.setProperty('height', `${REVEAL_H}px`, 'important');
     fixedReveal.style.setProperty('top', topValue, 'important');
     fixedReveal.style.setProperty('bottom', 'auto', 'important');
-    fixedReveal.style.setProperty('left', `${centerX}px`, 'important');
+    fixedReveal.style.setProperty('left', `${Math.round(revealAnchor.x)}px`, 'important');
     fixedReveal.style.setProperty('right', 'auto', 'important');
     fixedReveal.style.setProperty('transform', 'translateX(-50%)', 'important');
     fixedReveal.style.setProperty('overflow', 'visible', 'important');
@@ -463,69 +494,69 @@ export function initializeInputUI(): void {
 
   hideReveal();
 
-  const forceOpenOnWelcome = (): void => {
-    const panel = document.getElementById('mainPanel');
-    if (panel && !panel.classList.contains('chat-active') && !inputOpen) {
-      inputOpen = true;
-      hideReveal();
-      inputContainer.classList.remove('input-closed');
-      setTimeout(() => {
-        inputField.style.height = '';
-        inputField.style.minHeight = '';
-        inputField.style.maxHeight = '';
-        inputField.style.overflowY = '';
-        emitGeometry();
-      }, 50);
-    }
-  };
+  document.addEventListener('asuum:welcome-mode', () => {
+    if (inputOpen) return;
+    inputOpen = true;
+    revealAnchor = null;
+    hideReveal();
+    inputApi.refresh();
+    setTimeout(() => {
+      inputField.style.height = '';
+      inputField.style.minHeight = '';
+      inputField.style.maxHeight = '';
+      inputField.style.overflowY = '';
+      inputApi.refresh();
+    }, 60);
+  });
 
-  document.addEventListener('asuum:welcome-mode', forceOpenOnWelcome);
-  const panel = document.getElementById('mainPanel');
-  if (panel) {
-    new MutationObserver(() => {
-      if (!panel.classList.contains('chat-active') && !inputOpen) forceOpenOnWelcome();
-      if (dropdownOpen) applyDropdownPosition();
-      emitGeometry();
-    }).observe(panel, { attributes: true, attributeFilter: ['class'] });
-  }
-
+  /* ✅ TOGGLE — 300ms guard, close se pehle anchor capture */
+  let lastToggleAt = 0;
   const toggleInput = (e?: Event): void => {
     if (e) { e.stopPropagation(); e.preventDefault(); }
+    const now = Date.now();
+    if (now - lastToggleAt < 300) return;
+    lastToggleAt = now;
+
     inputOpen = !inputOpen;
     closeDropdown();
+
     if (inputOpen) {
+      revealAnchor = null;
       hideReveal();
-      inputContainer.classList.remove('input-closed');
+      inputApi.refresh();
       setTimeout(() => {
-        inputField.focus();
         inputField.style.height = '';
         inputField.style.minHeight = '';
         inputField.style.maxHeight = '';
         inputField.style.overflowY = '';
-        emitGeometry();
-      }, 350);
+        inputField.focus();
+        inputApi.refresh();
+      }, 60);
     } else {
-      /* Close button ka centre capture karo — reveal EXACTLY wahi banega */
-      const r = closeBtn.getBoundingClientRect();
-      placeRevealAt(r.top + r.height / 2, r.left + r.width / 2);
-      inputContainer.classList.add('input-closed');
+      /* Button visible hai abhi — exact centre capture karo */
+      revealAnchor = measureCloseCenter();
       inputField.blur();
+      inputApi.refresh();
+      requestAnimationFrame(() => placeRevealAtAnchor());
+      setTimeout(() => placeRevealAtAnchor(), 120);
     }
-    emitGeometry();
-    setTimeout(emitGeometry, 360);
   };
 
   closeBtn.addEventListener('click', toggleInput);
   box.addEventListener('click', toggleInput);
   line.addEventListener('click', toggleInput);
-  inputContainer.addEventListener('click', (e: MouseEvent) => { if (!inputOpen && e.target !== inputField) toggleInput(); });
+  inputContainer.addEventListener('click', (e: MouseEvent) => {
+    if (inputOpen) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.closest('.input-close-btn') || t.closest('.provider-selector-wrap'))) return;
+    toggleInput(e);
+  });
 
-  /* Resize / rotate / keyboard pe reveal apni jagah recompute */
+  /* Resize / rotate / keyboard → naye container centre pe re-measure (no jump) */
   const repositionRevealIfClosed = (): void => {
     if (inputOpen) return;
-    const c = inputContainer.getBoundingClientRect();
-    const btnH = closeBtn.offsetHeight || 20;
-    placeRevealAt(c.bottom - btnH / 2, c.left + c.width / 2);
+    revealAnchor = measureCloseCenter();
+    placeRevealAtAnchor();
   };
   window.addEventListener('resize', repositionRevealIfClosed);
   window.addEventListener('orientationchange', () => { setTimeout(repositionRevealIfClosed, 150); });
@@ -570,4 +601,5 @@ export function initializeInputUI(): void {
   if (sendBtn) { sendBtn.addEventListener('click', sendMessage); sendBtn.disabled = true; }
   if (plusBtn) { plusBtn.addEventListener('click', () => { console.log('➕ Plus clicked'); }); }
   autoResize();
+  inputApi.refresh();
 }

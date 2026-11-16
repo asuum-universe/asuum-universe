@@ -1,4 +1,16 @@
-/* chat-main.css — DESKTOP BASE · NO TOP LAYER · INPUT-ANCHORED SCROLL BUTTON */
+/* chat-main.css — DESKTOP BASE · ZERO LAYER · FIXED OVERLAY INPUT */
+
+/* ==========================================================================
+   ✅ NO LAYER — chat screen / input box ke peeche koi band nahi
+   ========================================================================== */
+.main-panel::before,.main-panel::after,
+.chat-screen::before,.chat-screen::after,
+.input-container::before,.input-container::after,
+.chat-messages::before,.chat-messages::after{
+  content:none!important;
+  display:none!important;
+}
+.main-panel.chat-active{background:transparent!important;box-shadow:none!important}
 
 /* ✅ Content header ke neeche se start — CONSTANT (header open/close se zero shift) */
 html .main-area .main-panel.chat-active .chat-screen,
@@ -111,8 +123,8 @@ html .header-area.header-closed~.main-panel.chat-active .chat-screen{padding-top
 .history-scrollbar-thumb.dragging{background:var(--theme-scrollbar-thumb-hover)}
 
 /* ==========================================================================
-   ✅ SCROLL-TO-BOTTOM — input ke RIGHT edge pe, uske just ABOVE
-   JS transform se position karta hai → input close hone pe khud neeche glide
+   SCROLL-TO-BOTTOM — input ke RIGHT edge pe, uske just ABOVE
+   JS transform se position → input close hone pe khud neeche glide
    ========================================================================== */
 .scroll-to-bottom-btn{
   position:fixed;top:0;left:0;
@@ -258,14 +270,52 @@ body.main-dark .mm-menu{
 .mh-body::-webkit-scrollbar-thumb{background:#d4d4d8;border-radius:3px}
 .mh-providers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 
-.main-panel.chat-active{background:transparent!important}
-.main-panel.chat-active .chat-screen{background:var(--theme-bg)!important}
-.main-panel.chat-active .chat-screen::after{display:none!important}
-.main-panel.chat-active .input-container:not(.input-closed){position:relative!important;top:auto!important;left:auto!important;transform:none!important;opacity:1!important;margin-bottom:16px!important;z-index:2!important;background:var(--input-match-bg)!important;border:.5px solid var(--input-match-border)!important;box-shadow:0 1px 2px rgba(0,0,0,.03)!important;transition:background-color var(--theme-transition)!important}
-.main-panel.chat-active .input-container:not(.input-closed):focus-within{border-color:var(--theme-text-muted)!important;background:var(--input-match-bg)!important;box-shadow:0 0 0 1px var(--theme-selection)!important}
-.main-panel.chat-active .input-container.input-closed{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;border:none!important;border-radius:0!important;box-shadow:none!important;outline:none!important}
-.main-panel.chat-active .chat-messages{background:transparent!important}
+/* ==========================================================================
+   ✅ CHAT MODE — input FIXED overlay, chat uske PEECHE scroll
+   Pehle input 'relative' (in-flow) tha → neeche jagah reserve karta tha
+   = woh "layer" jisme messages gayab ho jaate the. Ab woh nahi hai.
+   ========================================================================== */
+.main-panel.chat-active .chat-screen{
+  background:var(--theme-bg)!important;
+  flex:1 1 auto!important;
+  min-height:0!important;
+  padding-bottom:0!important;
+}
+.main-panel.chat-active .chat-messages{
+  background:transparent!important;
+  padding-bottom:130px!important;   /* last message input ke upar aa sake */
+}
+
+.main-panel.chat-active .input-container:not(.input-closed){
+  position:fixed!important;
+  bottom:16px!important;
+  left:50%!important;
+  right:auto!important;
+  top:auto!important;
+  transform:translateX(-50%)!important;
+  width:90%!important;
+  max-width:760px!important;
+  margin:0!important;
+  opacity:1!important;
+  z-index:100!important;
+  background:var(--input-match-bg)!important;
+  border:.5px solid var(--input-match-border)!important;
+  box-shadow:0 2px 14px rgba(0,0,0,.10)!important;
+  transition:background-color var(--theme-transition)!important;
+}
+.main-panel.chat-active .input-container:not(.input-closed):focus-within{
+  border-color:var(--theme-text-muted)!important;
+  background:var(--input-match-bg)!important;
+  box-shadow:0 0 0 1px var(--theme-selection),0 2px 14px rgba(0,0,0,.10)!important;
+}
+.main-panel.chat-active .input-container.input-closed{
+  background:transparent!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  border:none!important;border-radius:0!important;
+  box-shadow:none!important;outline:none!important;
+}
 .main-panel.chat-active .scroll-to-bottom-btn{background:var(--theme-surface)!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;border:1px solid var(--theme-border)!important}
+
 .timeline-system.laser-shimmer-active .timeline-pillar{position:relative;overflow:hidden;background:var(--theme-surface)}
 .timeline-system.laser-shimmer-active .timeline-pillar::after{content:'';position:absolute;top:-100%;left:0;width:100%;height:15%;background:linear-gradient(180deg,transparent 0%,rgba(255,255,255,0) 20%,rgba(255,255,255,.9) 48%,#fff 50%,rgba(255,255,255,.9) 52%,rgba(255,255,255,0) 80%,transparent 100%);animation:pillarVerticalSweep 1.8s linear infinite;pointer-events:none;z-index:10}
 @keyframes pillarVerticalSweep{0%{top:-15%}100%{top:115%}}

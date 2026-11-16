@@ -1,6 +1,6 @@
-/** header-ui.ts — V1 + WAVE HANDS + LASER SHIMMER + MOBILE EDGE SLOTS (strict-TS safe) */
+/** header-ui.ts — V1 + WAVE + LASER SHIMMER + MOBILE EDGE SLOTS (blink-free title) */
 import{getActiveTab,getTabById,updateTabTitle,onTabsChange,getActiveSessionId,getAllTabs,closeTab}from'../services/header-tabs-store';
-import{getCurrentSession,deleteSession}from'../../chat-screen/services/chat-store';
+import{getCurrentSession,deleteSession,onSessionChange}from'../../chat-screen/services/chat-store';
 import{setExplicitNewTabClicked,clearInjectedColor}from'../../welcome-screen/welcome-ts/welcome-ui';
 
 const IC_MORE=`<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>`;
@@ -12,8 +12,6 @@ const IC_EYE_OFF=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const MOUTH_CLASSES=['','happy','thinking','surprised','excited','love','confused','sleepy'];
 let currentMouthIndex=0,injected=false,editingTabId:string|null=null,editOrigTitle='';
 let tabMenuEl:HTMLElement|null=null,tabMenuForId:string|null=null;
-// ✅ headerAreaEl = #headerArea (.header-area div) — CSS classes toggle here
-// ✅ headerContainerEl = #headerContainer — DOM injection happens inside this
 let headerAreaEl:HTMLElement|null=null,headerContainerEl:HTMLElement|null=null;
 let avatarBtn:HTMLElement|null=null,titleWrapEl:HTMLElement|null=null;
 let reopenLineEl:HTMLElement|null=null,reopenArrowEl:HTMLElement|null=null;
@@ -25,9 +23,16 @@ let mouthEl:HTMLElement|null=null,blinkTimer:ReturnType<typeof setTimeout>|null=
 let isRendering=false,eventCapturedTitle:string|null=null,hasWaved=false;
 let wasInChatMode=false;
 
-/* ── MOBILE-ONLY EDGE CONTROLS ──
-   ✅ FIX: HTMLButtonElement (not HTMLElement) — `.type` only exists on buttons.
-   Yahi line 160 aur 182 ke do red errors ki asli wajah thi. */
+/* ✅ BLINK-FREE TITLE STATE
+   renderTitle() ab idempotent hai — same title/state pe DOM touch hi nahi hota,
+   isliye hdrFadeIn animation restart nahi hoti → zero blink. */
+let renderedTitle='';
+let renderedEditing:string|null=null;
+let titleTextEl:HTMLElement|null=null;
+let titleMenuBtnEl:HTMLButtonElement|null=null;
+let lastSessionId:string|null=null;
+
+/* ── MOBILE-ONLY EDGE CONTROLS ── */
 let leftSlotEl:HTMLButtonElement|null=null;
 let menuBtnEl:HTMLButtonElement|null=null;
 let headerMenuEl:HTMLElement|null=null;
@@ -36,7 +41,9 @@ let hdrMenuRaf:number|null=null;
 const WELCOME_STATE_KEY='asuum_welcome_mode';
 function saveWelcomeState(v:boolean):void{try{if(v)localStorage.setItem(WELCOME_STATE_KEY,'1');else localStorage.removeItem(WELCOME_STATE_KEY);}catch{/* blocked */}}
 function loadWelcomeState():boolean{try{return localStorage.getItem(WELCOME_STATE_KEY)==='1';}catch{return true;}}
+
 export function toast(msg:string):void{if(!headerToastEl){headerToastEl=document.createElement('div');headerToastEl.className='hdr-toast';document.body.appendChild(headerToastEl);}if(headerToastTimer)clearTimeout(headerToastTimer);headerToastEl.classList.remove('show');void headerToastEl.offsetWidth;headerToastEl.textContent=msg;headerToastEl.classList.add('show');headerToastTimer=setTimeout(()=>{headerToastEl?.classList.remove('show');},3000);}
+
 function onAvatarClick(e:MouseEvent):void{e.stopPropagation();closeMenu();if(editingTabId){editingTabId=null;renderTitle();}currentMouthIndex=(currentMouthIndex+1)%MOUTH_CLASSES.length;setMouth(currentMouthIndex);triggerWave();}
 function setMouth(i:number):void{
   const m=mouthEl;if(!m)return;
@@ -69,6 +76,7 @@ function triggerWave():void{
 function resetWave():void{hasWaved=false;}
 function startHeaderShimmer():void{titleWrapEl?.classList.add('laser-shimmer-active');}
 function stopHeaderShimmer():void{titleWrapEl?.classList.remove('laser-shimmer-active');}
+
 function wireGazeTracking():void{
   const upd=(cx:number,cy:number):void=>{
     const av=avatarBtn,fg=faceGroupEl,eyes=eyeEls;
@@ -97,10 +105,7 @@ function wireBlink():void{
   blinkTimer=setTimeout(db,2500);
 }
 
-/**
- * ENTER WELCOME MODE
- * Adds welcome-header to #headerArea → CSS: .header-area.welcome-header:not(.welcome-collapsed) .header-container → 60px
- */
+/** ENTER WELCOME MODE — header hero (60px), title cleared */
 function enterWelcomeMode():void{
   isWelcomeMode=true;saveWelcomeState(true);
   eventCapturedTitle=null;editingTabId=null;editOrigTitle='';
@@ -116,10 +121,8 @@ function enterWelcomeMode():void{
   renderTitle();
   setTimeout(()=>triggerWave(),400);
 }
-/**
- * EXIT WELCOME MODE
- * Removes welcome-header from #headerArea → CSS: .header-container defaults to 36px
- */
+
+/** EXIT WELCOME MODE — header patla (28px), title visible */
 function exitWelcomeMode(title?:string):void{
   isWelcomeMode=false;saveWelcomeState(false);
   wasInChatMode=true;
@@ -138,7 +141,7 @@ function exitWelcomeMode(title?:string):void{
 }
 
 export function initializeHeaderUI():void{
-  console.log('😊 Header UI (V1 + Wave + Laser Shimmer + Mobile Edge Slots)');
+  console.log('😊 Header UI (blink-free title + session-aware)');
   headerAreaEl=document.getElementById('headerArea');
   headerContainerEl=document.getElementById('headerContainer');
   const savedWelcome=loadWelcomeState();
@@ -148,17 +151,39 @@ export function initializeHeaderUI():void{
   isWelcomeMode=savedWelcome||!hasActiveChat;
   wasInChatMode=!isWelcomeMode&&hasActiveChat;
   eventCapturedTitle=(!isWelcomeMode&&cs?.title)?cs.title:null;
+  lastSessionId=cs?.id??null;
+
   setExplicitNewTabClicked(false);injectStructure();wireGlobalClose();watchPanel();wireGazeTracking();wireBlink();
+
   document.addEventListener('asuum:ai-thinking-start',()=>startHeaderShimmer());
   document.addEventListener('asuum:ai-thinking-stop',()=>stopHeaderShimmer());
   onTabsChange(()=>{if(isWelcomeMode)return;renderTitle();});
+
+  /* ✅ SESSION CHANGE — sidebar se chat kholne pe header turant update.
+     Pehle ye listener tha hi nahi, isliye title aata hi nahi tha. */
+  onSessionChange(()=>{
+    const s=getCurrentSession();
+    const sid=s?.id??null;
+    if(sid){
+      const t=s?.title||'New Chat';
+      const changed=sid!==lastSessionId;
+      lastSessionId=sid;
+      eventCapturedTitle=t;
+      if(changed){editingTabId=null;renderedTitle='';renderedEditing=null;}
+      if(isWelcomeMode)exitWelcomeMode(t);
+      else{wasInChatMode=true;renderTitle();}
+    }else{
+      lastSessionId=null;
+      if(!isWelcomeMode)enterWelcomeMode();
+    }
+  });
+
   document.addEventListener('asuum:welcome-mode',()=>{enterWelcomeMode();setExplicitNewTabClicked(false);clearInjectedColor();});
-  document.addEventListener('asuum:chat-mode',((e:Event)=>{const ce=e as CustomEvent;const t=(ce.detail?.title as string)||'';exitWelcomeMode(t);})as EventListener);
+  document.addEventListener('asuum:chat-mode',((e:Event)=>{const ce=e as CustomEvent;const s=getCurrentSession();const t=(ce.detail?.title as string)||s?.title||'New Chat';exitWelcomeMode(t);})as EventListener);
   document.addEventListener('asuum:message-sent',()=>{if(isWelcomeMode){const s=getCurrentSession();exitWelcomeMode(s?.title||'New Chat');}});
-  document.addEventListener('asuum:session-opened',((e:Event)=>{const ce=e as CustomEvent;const t=(ce.detail?.title as string)||'Chat';exitWelcomeMode(t);document.getElementById('mainPanel')?.classList.add('chat-active');})as EventListener);
+  document.addEventListener('asuum:session-opened',((e:Event)=>{const ce=e as CustomEvent;const s=getCurrentSession();const t=(ce.detail?.title as string)||s?.title||'Chat';document.getElementById('mainPanel')?.classList.add('chat-active');exitWelcomeMode(t);})as EventListener);
   document.addEventListener('asuum:title-updated',((e:Event)=>{const ce=e as CustomEvent;const t=ce.detail?.title as string|undefined;if(t){eventCapturedTitle=t;if(!isWelcomeMode)renderTitle();}})as EventListener);
 
-  /* mobile header menu — dismiss on any outside press, Escape, resize */
   document.addEventListener('pointerdown',(e:Event)=>{
     const pop=headerMenuEl;if(!pop)return;
     const t=e.target as HTMLElement|null;if(!t)return;
@@ -173,19 +198,12 @@ export function initializeHeaderUI():void{
   if(isWelcomeMode)enterWelcomeMode();else exitWelcomeMode(cs?.title||'New Chat');
 }
 
-/**
- * INJECT STRUCTURE
- * reopen-line & reopen-arrow → appended to #headerArea
- * header-top-row → appended to #headerContainer
- * mobile-only: left reserved slot + right menu button (display:none on desktop)
- */
 function injectStructure():void{
   if(injected)return;
   const ha=headerAreaEl;
   const hc=headerContainerEl;
   if(!ha||!hc)return;
 
-  // Reopen line & arrow
   const rl=document.createElement('div');
   rl.className='reopen-line';rl.title='Open Header';
   rl.addEventListener('click',(e:MouseEvent)=>{e.stopPropagation();onReopenLine();});
@@ -198,7 +216,6 @@ function injectStructure():void{
   ra.innerHTML='<svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>';
   ha.appendChild(ra);reopenArrowEl=ra;
 
-  // Header top row
   const tr=document.createElement('div');tr.className='header-top-row';
   tr.addEventListener('click',(e:MouseEvent)=>{
     const area=headerAreaEl;if(!area)return;
@@ -214,18 +231,16 @@ function injectStructure():void{
     }
   });
 
-  /* ── LEFT RESERVED SLOT (mobile only) — jagah future feature ke liye ── */
   const slot=document.createElement('button');
   slot.className='header-slot-btn';
   slot.id='headerLeftSlot';
-  slot.type='button';                      // ✅ ab HTMLButtonElement — no error
+  slot.type='button';
   slot.dataset.empty='true';
   slot.setAttribute('aria-hidden','true');
   slot.tabIndex=-1;
   slot.addEventListener('click',(e:MouseEvent)=>{e.stopPropagation();});
   tr.appendChild(slot);leftSlotEl=slot;
 
-  // Avatar
   const av=document.createElement('div');
   av.className='header-avatar-toggle';av.title='Change expression';
   av.addEventListener('click',onAvatarClick);
@@ -254,11 +269,10 @@ function injectStructure():void{
   cb.addEventListener('click',(e:MouseEvent)=>{e.stopPropagation();onCloseHeader();});
   tr.appendChild(cb);closeBtnEl=cb;
 
-  /* ── RIGHT MENU BUTTON (mobile only) ── */
   const mb=document.createElement('button');
   mb.className='header-menu-btn';
   mb.id='headerMenuBtn';
-  mb.type='button';                        // ✅ ab HTMLButtonElement — no error
+  mb.type='button';
   mb.title='Header menu';
   mb.setAttribute('aria-label','Header menu');
   mb.setAttribute('aria-haspopup','menu');
@@ -355,39 +369,86 @@ function closeHeaderMenu():void{
   const btn=menuBtnEl;
   if(btn){btn.classList.remove('active');btn.setAttribute('aria-expanded','false');}
 }
-/** Future feature hook — left slot abhi khali hai, yahan se plug kar sakte ho. */
 export function getHeaderLeftSlot():HTMLButtonElement|null{return leftSlotEl;}
 
+/* ✅ TITLE SOURCE — current session FIRST (stale captured title se bachne ke liye) */
 function title():string{
   if(isWelcomeMode)return'';
+  const s=getCurrentSession();
+  if(s?.title)return s.title;
+  const at=getActiveTab();
+  if(at?.title)return at.title;
   if(eventCapturedTitle)return eventCapturedTitle;
-  const s=getCurrentSession();if(s?.title)return s.title;
-  const at=getActiveTab();if(at?.title)return at.title;
   return'New Chat';
 }
+
+/**
+ * ✅ BLINK-FREE RENDER
+ * 1. Same title + same mode → ZERO DOM work (no animation restart)
+ * 2. Sirf text badla → in-place textContent update (no rebuild)
+ * 3. Mode switch / first render → full rebuild (fade animation sirf yahan)
+ */
 function renderTitle():void{
   if(isRendering)return;isRendering=true;
   try{
     const tw=titleWrapEl;if(!tw)return;
-    if(isWelcomeMode){tw.innerHTML='';return;}
-    const t=title();if(!t){tw.innerHTML='';return;}
+
+    if(isWelcomeMode){
+      if(tw.childElementCount>0)tw.innerHTML='';
+      renderedTitle='';renderedEditing=null;titleTextEl=null;titleMenuBtnEl=null;
+      return;
+    }
+
+    const t=title();
+    if(!t){
+      if(tw.childElementCount>0)tw.innerHTML='';
+      renderedTitle='';renderedEditing=null;titleTextEl=null;titleMenuBtnEl=null;
+      return;
+    }
+
     const at=getActiveTab();
+    const editKey=(editingTabId&&at&&editingTabId===at.id)?editingTabId:null;
+    const hasStructure=tw.childElementCount>0;
+
+    /* 1️⃣ Kuch nahi badla → return (blink kill) */
+    if(hasStructure&&t===renderedTitle&&editKey===renderedEditing)return;
+
+    /* 2️⃣ View mode mein sirf title text badla → in-place update */
+    if(hasStructure&&!editKey&&renderedEditing===null&&titleTextEl){
+      titleTextEl.textContent=t;
+      titleTextEl.title=t;
+      const mb=titleMenuBtnEl;
+      if(mb){
+        if(at){
+          mb.style.display='';
+          mb.onclick=(e:MouseEvent):void=>{e.stopPropagation();openMenu(at.id,mb);};
+        }else{
+          mb.style.display='none';
+          mb.onclick=null;
+        }
+      }
+      renderedTitle=t;
+      return;
+    }
+
+    /* 3️⃣ Full rebuild — mode switch / first render */
     const wasShimmer=tw.classList.contains('laser-shimmer-active');
     tw.innerHTML='';
     if(wasShimmer)tw.classList.add('laser-shimmer-active');
+    titleTextEl=null;titleMenuBtnEl=null;
 
-    if(editingTabId&&at&&editingTabId===at.id){
+    if(editKey&&at){
       const w=document.createElement('div');w.className='single-title-wrap editing';
       const inp=document.createElement('input');
       inp.type='text';inp.className='single-title-input';inp.value=t;inp.maxLength=60;
       const sv=():void=>{
         const v=inp.value.trim();
         if(v&&v!==editOrigTitle){updateTabTitle(at.id,v);eventCapturedTitle=v;}
-        editingTabId=null;renderTitle();
+        editingTabId=null;renderedTitle='';renderedEditing=null;renderTitle();
       };
       inp.onkeydown=(e:KeyboardEvent):void=>{
         if(e.key==='Enter'){e.preventDefault();sv();}
-        else if(e.key==='Escape'){e.preventDefault();editingTabId=null;renderTitle();}
+        else if(e.key==='Escape'){e.preventDefault();editingTabId=null;renderedTitle='';renderedEditing=null;renderTitle();}
       };
       inp.onblur=sv;
       inp.onclick=(e:MouseEvent):void=>{e.stopPropagation();};
@@ -404,9 +465,13 @@ function renderTitle():void{
       if(at)mb.onclick=(e:MouseEvent):void=>{e.stopPropagation();openMenu(at.id,mb);};
       else mb.style.display='none';
       w.appendChild(te);w.appendChild(mb);tw.appendChild(w);
+      titleTextEl=te;titleMenuBtnEl=mb;
     }
+
+    renderedTitle=t;renderedEditing=editKey;
   }finally{isRendering=false;}
 }
+
 function openMenu(id:string,anchor:HTMLElement):void{
   closeMenu();closeHeaderMenu();
   tabMenuForId=id;
@@ -439,6 +504,14 @@ function wireGlobalClose():void{
     closeMenu();
   });
 }
+
+/**
+ * ✅ PANEL WATCHER — FIXED
+ * Pehle condition `!isWelcomeMode` thi → welcome→chat transition kabhi
+ * detect hi nahi hota tha, header khali reh jata tha.
+ * Ab: chat-active + session hai → chat mode; warna welcome mode.
+ * keyboard-open jaise无关 class changes pe koi rebuild nahi (idempotent render).
+ */
 function watchPanel():void{
   const p=document.getElementById('mainPanel');if(!p)return;
   new MutationObserver(():void=>{
@@ -446,17 +519,23 @@ function watchPanel():void{
     const ca=p.classList.contains('chat-active');
     const cs=getCurrentSession();
     const hasSession=!!cs&&!!cs.id;
-    if(wasInChatMode&&(!ca||!hasSession)){
-      wasInChatMode=false;enterWelcomeMode();
-    }else if(!wasInChatMode&&ca&&hasSession&&!isWelcomeMode){
-      wasInChatMode=true;
-      if(!eventCapturedTitle)eventCapturedTitle=cs?.title||'New Chat';
-      exitWelcomeMode(cs?.title||'New Chat');
+
+    if(ca&&hasSession){
+      const t=cs?.title||'New Chat';
+      if(isWelcomeMode){
+        exitWelcomeMode(t);
+      }else{
+        wasInChatMode=true;
+        if(!eventCapturedTitle)eventCapturedTitle=t;
+        renderTitle();
+      }
     }else{
-      renderTitle();
+      if(!isWelcomeMode)enterWelcomeMode();
+      else renderTitle();
     }
   }).observe(p,{attributes:true,attributeFilter:['class']});
 }
-export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderTitle();}
+
+export function startEditingTab(id:string):void{editingTabId=id;editOrigTitle=getTabById(id)?.title??'';renderedTitle='';renderedEditing=null;renderTitle();}
 export function updateActiveTabTitle(t:string):void{const at=getActiveTab();if(at){updateTabTitle(at.id,t);eventCapturedTitle=t;if(!isWelcomeMode)renderTitle();}}
 export function getActiveTabSessionId():string|null{return getActiveSessionId();}

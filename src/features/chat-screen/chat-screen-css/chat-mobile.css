@@ -2,13 +2,22 @@
    chat-mobile.css — MOBILE OVERRIDE LAYER ONLY
    Must load AFTER chat-main.css.
    --------------------------------------------------------------------------
-   · NO top layer (desktop se bhi hata diya)
+   · ZERO layer — input box / chat screen ke peeche koi band nahi
    · Timeline / chat-recorder + hover scrollbar = DESKTOP ONLY → hidden
    · Scroll-to-bottom button input ke right-top pe (JS positions it)
-   · Shell scroll-locked → keyboard pe page scroll nahi hota
    ========================================================================== */
 
 @media(max-width:768px){
+
+  /* ✅ NO LAYER — mobile pe bhi koi pseudo band nahi */
+  .main-panel::before,.main-panel::after,
+  .chat-screen::before,.chat-screen::after,
+  .input-container::before,.input-container::after,
+  .chat-messages::before,.chat-messages::after{
+    content:none!important;
+    display:none!important;
+  }
+  .main-panel.chat-active{background:transparent!important;box-shadow:none!important}
 
   /* ✅ Content header ke neeche se start — CONSTANT */
   html .main-area .main-panel.chat-active .chat-screen,
@@ -74,7 +83,6 @@
   .mh-body{padding:14px 18px 18px}
   .mh-providers-grid{grid-template-columns:1fr}
 
-  /* ✅ Input ke peeche koi layer nahi — messages seedha input ke neeche */
   .main-panel.chat-active .chat-messages{padding-bottom:calc(122px + env(safe-area-inset-bottom,0px))!important}
 }
 

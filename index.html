@@ -2,8 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- ✅ interactive-widget=resizes-content → keyboard layout viewport ko resize karta hai
-         ✅ viewport-fit=cover → safe-area env() kaam karta hai -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>Asuum Universe - AI Workspace</title>
     <link rel="manifest" href="/manifest.json">
@@ -117,6 +115,7 @@
         </main>
       </div>
 
+      <!-- CHAT RULES MODAL -->
       <div class="cr-overlay" id="crOverlay">
         <div class="cr-modal">
           <div class="cr-header">
@@ -143,24 +142,7 @@
         </div>
       </div>
 
-      <div class="mh-overlay" id="mhOverlay">
-        <div class="mh-modal" id="mhModal">
-          <div class="mh-header">
-            <div class="mh-title-group">
-              <div class="mh-logo-icon-wrap">
-                <svg class="mh-logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/></svg>
-              </div>
-              <h2>Model Hub</h2>
-            </div>
-            <div class="mh-header-actions">
-              <button class="mh-size-btn" id="mhSizeBtn" title="Fullscreen"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
-              <button class="mh-close-btn" id="mhCloseBtn" title="Close"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-            </div>
-          </div>
-          <div class="mh-categories" id="mhCategories"></div>
-          <div class="mh-body"><div class="mh-providers-grid" id="mhProvidersGrid"></div></div>
-        </div>
-      </div>
+      <!-- Model Hub overlay ab model-hub-ui.ts build karta hai (single source, no duplicate IDs) -->
     </div>
     <script type="module" src="/src/app.ts"></script>
 </body>
